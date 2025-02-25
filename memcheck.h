@@ -35,8 +35,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <fstream.h>
-#include <stddef.h>
+#include <cstddef>
+#include <fstream>
 
 #include "joshdefs.h"
 

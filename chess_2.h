@@ -1,12 +1,9 @@
-#ifndef J_CHESS_H
-#define J_CHESS_H
+#pragma once
 ///////////////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////////////////
-#include <cstring.h>
-#include <stddef.h>
-#include <strstrea.h>
-
+#include <cstddef>
+#include <cstring>
 
 #include "joshdefs.h"
 #include "list5.h"
@@ -77,11 +74,14 @@ public:
 	int ff() const {return fFF;}
 	int rt() const {return fRT;}
 	int ft() const {return fFT;}
-	E_type& type() {return fType;}
+	E_type const& type() const {return fType;}
+	E_type & type() {return fType;}
 
 private:
 
-	int fRF, fFF, fRT, fFT; // row from, file from, row to, file to //!?? keep signed int so that can use in expressions that depend on signed values
+    int fRF, fFF, fRT, fFT; // row from, file from, row to, file to //!?? keep
+                            // signed int so that can use in expressions that
+                            // depend on signed values
 	E_type fType;
 };
 
@@ -236,17 +236,3 @@ unsigned NumCharsInStr(const char* str, int c);
 bool AlgebraicToMove(const char constSAN[], const Board& b, ChessMove* move);
 
 bool AlgebraicToMove(const char constSAN[], const Board& b, List<ChessMove>& allMoves, ChessMove* move);
-
-#endif // chess.h
-
-
-
-
-
-
-
-
-
-
-
-

@@ -14,10 +14,13 @@
 #include "stpwatch.h" // profiling
 StopWatch gTimer[10];
 
-#include <string.h>
 #include <assert.h>
+#include <cstring>
 #include <ctype.h>
+#include <filesystem>
 #include <limits.h> // UCHAR_MAX
+#include <sstream>
+namespace fs = std::filesystem;
 
 // .pgn to .pgc
 #include "chess_2.h"
@@ -26,9 +29,9 @@ StopWatch gTimer[10];
 #include "pqueue_2.h"
 #include "list5.h"
 
-typedef char pgcByteT; // one byte (two's complement)
-typedef short pgcWordT; // two bytes (two's complement)
-typedef long pgcDoubleWordT; // four bytes (two's complement) //!?? not used yet
+using pgcByteT = int8_t;  // one byte (two's complement)
+using pgcWordT = int16_t; // two bytes (two's complement)
+using pgcDoubleWordT = int32_t; // four bytes (two's complement)
 
 // must be converted to little-endian
 // Endian conversion code idea taken from "Obfuscated C and Other Mysteries" by Don Libes, 1993 pp. 121-3
@@ -51,15 +54,15 @@ private:
 		}
 
 public:
-	ToLittleEndian() { // what endian is the machine we're using?
-			const pgcWordT testValue = 0x0100;
-			char* cp = (char*) &testValue;
-			if(*cp == 0x01)
-				fSwapFunc = &ToLittleEndian::byteSwap;
-			else
-				fSwapFunc = &ToLittleEndian::noSwap;
-		}
-	void operator()(pgcWordT w, char c[]) { fSwapFunc(w, c); }
+  ToLittleEndian() { // what endian is the machine we're using?
+    const pgcWordT testValue = 0x0100;
+    char *cp = (char *)&testValue;
+    if (*cp == 0x01)
+      fSwapFunc = &ToLittleEndian::byteSwap;
+    else
+      fSwapFunc = &ToLittleEndian::noSwap;
+  }
+  void operator()(pgcWordT w, char c[]) { fSwapFunc(w, c); }
 };
 
 ToLittleEndian gToLittleEndian;
@@ -71,7 +74,7 @@ ToLittleEndian gToLittleEndian;
 // change result tag to one byte // remove length info as well
 // remove date length info (it's always the same) and change to byte sequence (e.g. int-2 year int-2 month int-1 day)
 
-#include <cstring.h>
+#include <cstring>
 #include "list5.h"
 
 static const pgcByteT kMarkerBeginGameReduced = 0x01;
@@ -84,7 +87,6 @@ static const pgcByteT kMarkerSimpleNAG = 0x07;
 static const pgcByteT kMarkerRAVBegin = 0x08;
 static const pgcByteT kMarkerRAVEnd = 0x09;
 static const pgcByteT kMarkerEscape = 0x0a;
-
 
 const char* SkipWhite(const char* c)
 {
@@ -209,7 +211,7 @@ int FindElement(const string& target, PriorityQueue<ChessMoveSAN>& source)
 // this performs a lot of clean-up, e.g. move numbers are ignored
 enum E_gameTermination {none, // still need to processing game
 					parsingError, illegalMove, RAVUnderflow, unknown, whiteWin, blackWin, draw}; //?!! use later to determine if original STR Result is correct
-E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, ostream& pgc)
+E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostream& pgc)
 {
 	static Board gPreviousGamePos; // used in case their is something other than a move sequence before a RAV
 	static int gRAVLevels;					// used to finish putting RAVEnd markers, and to detect RAV underflow
@@ -395,8 +397,8 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, ostream& pg
 			ChessMove cm;
 			if(!game.algebraicToMove(&cm, moves[i].c_str(), allMoves))
 			{
-				cout << "\nillegal move: " << moves[i].c_str();
-				cout << "\n";
+                std::cout << "\nillegal move: " << moves[i].c_str();
+                std::cout << "\n";
 				game.display();
 				return illegalMove; // move is not legal
 			}
@@ -412,15 +414,15 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, ostream& pg
 				SANMoves.gotoFirst();
 				ChessMoveSAN debug;
 				int debugI = 0;
-				cout << "\n";
+                std::cout << "\n";
 				while(SANMoves.next(&debug))
-					cout << debugI++ << " " << debug.san() << "\t";
+                std::cout << debugI++ << " " << debug.san() << "\t";
 				SANMoves.gotoFirst();
 
 				TRACE(san);
 			}
 */
-//			cout << "\nMove: " << san << "\n";
+//			std::cout << "\nMove: " << san << "\n";
 //			game.display();
 
 			pgc << (pgcByteT)FindElement(san, SANMoves);
@@ -429,8 +431,9 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, ostream& pg
 				if(reasonToBreak == RAVBegin)
 				{
 					pgc << kMarkerRAVBegin;
-					gameResult = ProcessMoveSequence(Board(game), pgn, pgc);
-				} else
+                    Board temp = game;
+					gameResult = ProcessMoveSequence(temp, pgn, pgc);
+				} else // SEHE FIXME hanging else
 				{
 					gPreviousGamePos = game; // their can't be two rav's at the same level for the same move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1... (pgn formal syntax)
 				}
@@ -477,7 +480,7 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, ostream& pg
 // convert game from .pgn format to .pgc format
 // returns true if game is valid and succeeded, false otherwise
 // sets endOfGame to the place in pgn where the game stopped being processed
-E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, ostream& pgc)
+E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, std::ostream& pgc)
 {
 
 	assert(pgn);
@@ -553,79 +556,86 @@ E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, ostream& pgc
 }
 
 // returns the number of games processed successfully
-int PgnToPgcDataBase(istream& pgn, ostream& pgc)
-{
-	const size_t kLargestGame = 0x4000; // too large will impede performance due to memmove
-	char* const gameBuffer = NewArray(char, kLargestGame + 1);
-	CHECK_POINTER(gameBuffer);
-	AdoptArray<char> gameAdopter(gameBuffer);
-	char* gameBufferCurrent = gameBuffer;
+int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
+  const size_t kLargestGame =
+      0x4000; // too large will impede performance due to memmove
+  char *const gameBuffer = NewArray(char, kLargestGame + 1);
+  CHECK_POINTER(gameBuffer);
+  AdoptArray<char> gameAdopter(gameBuffer);
+  char *gameBufferCurrent = gameBuffer;
 
-	unsigned gamesProcessed = 0;
+  unsigned gamesProcessed = 0;
 
-	cout << "\n"; // USER UPDATE
+  std::cout << "\n"; // USER UPDATE
 
-	long oldPGNFlags = pgn.flags(0); //!!? ios::skipws was set and causing problems
-	unsigned totalGames = 0;
-	while(!pgn.bad() && pgc.good())
-	{
-		cout << '.'; // USER UPDATE
-		//?!! should work, but it'll be interesting to know what happens when endOfGame == gameBuffer and pgnGame has a buffer size of 0
+  auto oldPGNFlags = pgn.flags(); //!!? ios::skipws was set and causing problems
+  pgn >> std::noskipws;
+  unsigned totalGames = 0;
+  while (!pgn.bad() && pgc.good()) {
+    std::cout << '.'; // USER UPDATE
+    //?!! should work, but it'll be interesting to know what happens when
+    //endOfGame == gameBuffer and pgnGame has a buffer size of 0
 
-		strstream pgnGame(gameBufferCurrent, kLargestGame - (gameBufferCurrent - gameBuffer), ios::out);
-		strstream pgcGame;
+    std::ostringstream pgnGame;
+    std::ostringstream pgcGame;
 
-		if(!pgn.eof()) //!!? clearing eofbit and then reading from file will set badbit (illegal operation), but need to clear failbit because it fails when pgnGame reaches eof()
-			pgn.clear();
+    if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
+                    //!badbit (illegal operation), but need to clear failbit
+                    //!because it fails when pgnGame reaches eof()
+      pgn.clear();
 
-		pgn >> pgnGame.rdbuf();
+    pgn >> pgnGame.rdbuf();
 
-/*
-		if(pgn.bad())
-			TRACE(pgn.bad());
+    /*
+                    if(pgn.bad())
+                            TRACE(pgn.bad());
 
-		TRACE(pgn);
-		TRACE(!pgn);
-		TRACE(pgn.good());
-		TRACE(pgn.eof());
-		TRACE(pgn.fail());
-		TRACE(pgn.bad());
-		TRACE((int)*gameBuffer);
-*/
-		assert(pgnGame.tellp() <= kLargestGame - (gameBufferCurrent - gameBuffer));
-		TRACE(pgnGame.tellp());
-		gameBufferCurrent[pgnGame.tellp()] = '\0';
+                    TRACE(pgn);
+                    TRACE(!pgn);
+                    TRACE(pgn.good());
+                    TRACE(pgn.eof());
+                    TRACE(pgn.fail());
+                    TRACE(pgn.bad());
+                    TRACE((int)*gameBuffer);
+    */
+    assert(pgnGame.tellp() <= kLargestGame - (gameBufferCurrent - gameBuffer));
+    TRACE(pgnGame.tellp());
+    gameBufferCurrent[pgnGame.tellp()] = '\0';
 
-		const char* endOfGame = 0;
-//		gTimer[2].start();
-		TRACE(++totalGames);
-		E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
-//		gTimer[2].stop();
+    const char *endOfGame = 0;
+    //		gTimer[2].start();
+    TRACE(++totalGames);
+    E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
+    //		gTimer[2].stop();
 
-		switch(result)
-		{
-			case illegalMove: cout << "\n Illegal move."; break;
-			case RAVUnderflow: cout << "\n RAV underflow."; break;
-			case parsingError: cout << "\n Parsing error (may be end-of-file)."; break; //return gamesProcessed; //??! needs fixing .eof()
-			default:
-				pgc << pgcGame.rdbuf();
-				++gamesProcessed;
-				break;
-		}
-		assert(endOfGame && endOfGame >= gameBuffer);
-		memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
-		gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
+    switch (result) {
+    case illegalMove:
+      std::cout << "\n Illegal move.";
+      break;
+    case RAVUnderflow:
+      std::cout << "\n RAV underflow.";
+      break;
+    case parsingError:
+      std::cout << "\n Parsing error (may be end-of-file).";
+      break; // return gamesProcessed; //??! needs fixing .eof()
+    default:
+      pgc << pgcGame.rdbuf();
+      ++gamesProcessed;
+      break;
+    }
+    assert(endOfGame && endOfGame >= gameBuffer);
+    memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
+    gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
 
-		if(!pgnGame || !pgcGame || !pgn.good() && *gameBuffer == '\0')
-		{
-			break;
-		}
-	}
-	assert(!pgn.bad());
-	assert(pgc.good());
+    if (!pgnGame || !pgcGame || !pgn.good() && *gameBuffer == '\0') {
+      break;
+    }
+  }
+  assert(!pgn.bad());
+  assert(pgc.good());
 
-	pgn.flags(oldPGNFlags);
-	return gamesProcessed;
+  pgn.flags(oldPGNFlags);
+  return gamesProcessed;
 }
 
 // Test Test Test Test Test Test Test Test Test Test Test Test Test Test Test
@@ -633,21 +643,18 @@ int PgnToPgcDataBase(istream& pgn, ostream& pgc)
 #ifdef TEST
 #undef TEST
 
-#include <assert.h>
-#include <iostream.h>
-#include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
-#include <strstrea.h>
-#include <ctype.h>			// isalnum()
-#include <fstream.h>
-#include <limits.h>			// INT_MAX
-#include <iomanip.h>		// stream manipulators (e.g. setw() )
-#include <stdio.h>
+#include <cassert>
+#include <cctype> // isalnum()
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <iomanip> // stream manipulators (e.g. setw() )
+#include <iostream>
+#include <limits> // INT_MAX
 
 // non-standard (may not be portable to some operating systems)
-#include <dir.h>      	// findfirst()
-
 
 // the different kinds of file operations that can cause an error
 enum FileOperationErrorT
@@ -661,329 +668,225 @@ enum FileOperationErrorT
 	};
 
 // report a file error to the standard error stream
-void ReportFileError(FileOperationErrorT operation, strstream& name);
+void ReportFileError(FileOperationErrorT operation, fs::path const &name);
 // returns if the file name is reserved (e.g. "PRN" is reserved for the printer)
-bool IsFileNameReserved(strstream& fileName);
+bool IsFileNameReserved(fs::path const &fileName);
 
+int main(int argc, char *argv[]) {
+  // INITIALIZE
+  gTimer[0].start();
 
-int main(int argc, char* argv[])
-	{
-		// INITIALIZE
-		gTimer[0].start();
+  fs::path inputFileName, outputFileName;
 
-		strstream inputFileName, outputFileName;
+  // If either inputFileName or outputFile name called "PRN", "LPT1", or
+  // "LPT2" the program will give unexpected results.  These are reserved names
+  // for the printer.
 
-		// If either inputFileName or outputFile name called "PRN", "LPT1", or
-		// "LPT2" the program will give unexpected results.  These are reserved names
-		// for the printer.
+  // argc, number of elements in argv[]
+  // argv[0], undefined (not used)
+  // argv[1], input filename (optional)
+  // argv[2], ouput filename (optional)
+  assert(argc);
 
-		// argc, number of elements in argv[]
-		// argv[0], undefined (not used)
-		// argv[1], input filename (optional)
-		// argv[2], ouput filename (optional)
-		assert(argc);
+  if (argc > 3) {
+    std::cout << "\nUsage: PGN2PGC [source_file [report_file]]\n";
+    return EXIT_FAILURE;
+  }
 
-		if(argc > 3)
-			{
-				cout << "\nUsage: PGN2PGC [source_file [report_file]]\n";
-				return EXIT_FAILURE;
-			}
+  // get the name of the input file
+  if (argc >= 2) {
+    inputFileName = argv[1];
+  } else {
+    // prompt user for file name
+    std::cout << "\nWhat is the name of the PGN file to "
+                 "be converted? ";
+    if (std::string temp; getline(std::cin, temp))
+      inputFileName = temp;
+  }
 
-		// get the name of the input file
-		if(argc >= 2)
-			{
-				inputFileName << argv[1] << ends;
-			}
-		else
-			{
-				// prompt user for file name
-				cout << "\nWhat is the name of the PGN file to be converted? ";
-				cin.get(*inputFileName.rdbuf(), '\n');
-				inputFileName << ends; // null terminate the stream
-				cin.get(); // extract the newline character
-			}
+  // If either inputFileName or outputFile name are called "PRN", "LPT1", or
+  // "LPT2" the program will give unexpected results.  These are reserved names
+  // for the printer.
 
-		// If either inputFileName or outputFile name are called "PRN", "LPT1", or
-		// "LPT2" the program will give unexpected results.  These are reserved names
-		// for the printer.
+  if (IsFileNameReserved(inputFileName)) {
+    ReportFileError(E_nameReserved, inputFileName);
 
-		if(IsFileNameReserved(inputFileName))
-			{
-				ReportFileError(E_nameReserved, inputFileName);
+    return EXIT_FAILURE;
+  }
 
-				return EXIT_FAILURE;
-			}
+  // open the input stream
+  // use ios::binary so that we don't limit the programs possible uses
+  std::ifstream inputStream(inputFileName, std::ios::binary);
 
-		// open the input stream
-		// use ios::binary so that we don't limit the programs possible uses
-		ifstream inputStream(inputFileName.str(), ios::in | ios::nocreate | ios::binary);
-		// release the buffer (frozen by calling inputFileName.str() )
-		inputFileName.rdbuf()->freeze(0);
+  // was the file opened successfully?
+  if (!inputStream) {
+    ReportFileError(E_openForInput, inputFileName);
+    return EXIT_FAILURE;
+  }
 
-		// was the file opened successfully?
-		if(!inputStream)
-			{
-				ReportFileError(E_openForInput, inputFileName);
+  if (argc >= 3) {
+    outputFileName = argv[2];
+  }
 
-				return EXIT_FAILURE;
-			}
+  // get the file name for output from user if the file already exists ask the
+  // user for confirmation that they want to overwrite it.  If they do not, ask
+  // for a new file name.
+  bool confirmFile = true;
 
-		if(argc >= 3)
-		{
-			outputFileName << argv[2] << ends;
-		}
+  do // use a do instead of a while to keep the loop entry condition logical
+  {
+    // get the name of the ouput file
+    if (argc < 3 || !confirmFile) {
+      // prompt user for file name
+      std::cout << "\nWhat is the name of the PGC file to be created? ";
+      if (std::string temp; getline(std::cin, temp))
+        outputFileName = temp;
+    }
 
-		// get the file name for output from user
-		// if the file already exists ask the user for confirmation that they want
-		// to overwrite it.  If they do not, ask for a new file name.
-		bool confirmFile = true;
+    // if (!findfirst(outputFileName.str(), &matchingFileInfo, 0)) {
+    if (exists(outputFileName)) {
+      // ask the user if the're sure they want to overwrite the file
+      std::cout << "\nFile " << outputFileName
+                << " already exists, do you want to overwrite it? (y/n) ";
 
-		do // use a do instead of a while to keep the loop entry condition logical
-			{
-				// get the name of the ouput file
-				if(argc < 3 || !confirmFile)
-				{
-					// prompt user for file name
-					cout << "\nWhat is the name of the PGC file to be created? ";
-					cin.get(*outputFileName.rdbuf(), '\n');
-					outputFileName << ends; // null terminate the stream
-					cin.get(); // extract the newline character
-				}
+      char response; // we only want to use the first character
 
+      // only read in the first character and then ignore the rest until EOL
+      std::cin >> response;
+      std::cin.ignore(INT_MAX, '\n');
 
-				ffblk matchingFileInfo; // only used in call to findfirst()
-				// does the file already exist?  (findfirst() returns 0 when found)
+      confirmFile = (tolower(response) == 'y');
+    }
+  } while (!confirmFile);
 
-				//!?? findfirst is not ANSI
-				if(!findfirst(outputFileName.str(), &matchingFileInfo, 0))
-					{
-						// ask the user if the're sure they want to overwrite the file
-						cout << "\nFile '" << outputFileName.str() << "' already exists, do you want to overwrite it? (y/n) ";
-						// release buffer (frozen by .str() call)
-						outputFileName.rdbuf()->freeze(0);
+  if (IsFileNameReserved(outputFileName)) {
+    ReportFileError(E_nameReserved, outputFileName);
 
-						// set the filename up for re-use
-						outputFileName.seekp(0);
+    return EXIT_FAILURE;
+  }
 
-						char response[2]; // we only want to use the first character
+  // if the input file is the same as the output file, use a temporary file
+  // and then delete the old file and rename the temporary file.
+  bool inputOutputSameFile =
+      inputFileName.lexically_normal() == outputFileName.lexically_normal();
+  inputOutputSameFile = true;
+  outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
 
-						// only read in the first character and then ignore the rest until EOL
-						cin.getline(response, 2);
-						cin.ignore(INT_MAX, '\n');
+  // open the ouput stream
+  // use ios::binary so that we don't limit the programs possible uses
+  std::ofstream outputStream(outputFileName,
+                             std::ios::trunc | std::ios::binary);
 
-						if(tolower(response[0]) != 'y')
-							confirmFile = false;
-						else
-							confirmFile = true;
-					}
-				else
-					{
-						// this must be here
-						confirmFile = true;
-					}
+  // was the file opened successfully?
+  if (!outputStream) {
+    ReportFileError(E_openForOutput, outputFileName);
+    return EXIT_FAILURE;
+  }
 
-			} while(!confirmFile);
+  // Let user know that what we are about to do
+  std::cout << "\nConverting the PGN file " << inputFileName
+            << "\n to PGC format and sending the output to file '"
+            << outputFileName << "'";
 
-		if(IsFileNameReserved(outputFileName))
-			{
-				ReportFileError(E_nameReserved, outputFileName);
+  //	gTimer[1].start();
+  unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
+  //	gTimer[1].stop();
 
-				return EXIT_FAILURE;
-			}
+  std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " "
+            << gameProcessed << " game" << (gameProcessed == 1 ? "" : "s")
+            << " processed.";
 
-		// if the input file is the same as the output file, use a temporary file
-		// and then delete the old file and rename the temporary file.
-		bool inputOutputSameFile = false;
-		//?!! stricmp() is not ANSI
-		if(stricmp(outputFileName.str(), inputFileName.str()) == 0)
-			{
-				inputOutputSameFile = true;
-				outputFileName.seekp(0);
+  if (!outputStream.good()) {
+    ReportFileError(E_output, inputFileName);
+    return EXIT_FAILURE;
+  }
 
-				//?!! mktemp is not ANSI
-				char *tempFName = "t_wcXXXXXX"; // template needed by mktemp
-				outputFileName << mktemp(tempFName) << ends;
-			}
-		outputFileName.rdbuf()->freeze(0);
-		inputFileName.rdbuf()->freeze(0);
+  if (inputOutputSameFile) {
+    inputStream.close();
+    outputStream.close();
 
-		// open the ouput stream
-		// use ios::binary so that we don't limit the programs possible uses
-		ofstream outputStream(outputFileName.str(), ios::out | ios::trunc | ios::binary);
-		// release the buffer (frozen by calling outputFileName.str() )
-		outputFileName.rdbuf()->freeze(0);
+    // delete oldfile
+    int systemCallSuccess = remove(inputFileName);
+    if (systemCallSuccess) // non-zero on failure
+    {
+      // print the appropiate message
+      perror("\nUnable to delete old input file");
+      return EXIT_FAILURE;
+    }
 
-		// was the file opened successfully?
-		if(!outputStream)
-			{
-				ReportFileError(E_openForOutput, outputFileName);
+    // rename temp file to old file
+    std::error_code ec;
+    fs::rename(outputFileName, inputFileName, ec);
 
-				return EXIT_FAILURE;
-			}
+    if (ec) // non-zero on failure
+    {
+      // print the appropiate message
+      std::cerr << "Unable to rename the temporary file " + ec.message()
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+  }
 
+  // If we get to here than their were no file errors
+  std::cout << "\n\nOperation was successful." << std::endl;
 
+  gTimer[0].stop();
 
-		// Let user know that what we are about to do
-		cout << "\nConverting the PGN file '" << inputFileName.str() <<
-					"'\n to PGC format and sending the output to file '" << outputFileName.str() << "'";
+  for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI) {
+    TRACE(debugI);
+    TRACE(gTimer[debugI].time());
+  }
 
-		// release the buffers (frozen by calling strstream.str() )
-		inputFileName.rdbuf()->freeze(0);
-		outputFileName.rdbuf()->freeze(0);
-
-//	gTimer[1].start();
-	unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
-//	gTimer[1].stop();
-
-	cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " "
-			<< gameProcessed << " game" << (gameProcessed == 1 ? "" : "s") << " processed.";
-
-	if(!outputStream.good())
-			{
-				ReportFileError(E_output, inputFileName);
-				return EXIT_FAILURE;
-			}
-
-		if(inputOutputSameFile)
-			{
-				inputStream.close();
-				outputStream.close();
-
-				// delete oldfile
-				int systemCallSuccess = remove(inputFileName.str());
-				inputFileName.rdbuf()->freeze(0);
-				if(systemCallSuccess) // non-zero on failure
-					{
-						// print the appropiate message
-						perror("\nUnable to delete old input file");
-						return EXIT_FAILURE;
-					}
-
-
-				// rename temp file to old file
-				systemCallSuccess = rename(outputFileName.str(), inputFileName.str());
-				outputFileName.rdbuf()->freeze(0);
-				inputFileName.rdbuf()->freeze(0);
-
-				if(systemCallSuccess) // non-zero on failure
-					{
-						// print the appropiate message
-						perror("\nUnable to rename the temporary file");
-						return EXIT_FAILURE;
-					}
-			}
-
-	// If we get to here than their were no file errors
-	cout << "\n\nOperation was successful." << endl;
-
-	gTimer[0].stop();
-
-	for(int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI)
-	{
-		TRACE(debugI);
-		TRACE(gTimer[debugI].time());
-	}
-
-	return EXIT_SUCCESS;
-
+  return EXIT_SUCCESS;
 }
 
-//-----------------------------------------------------------------------------
-// Function:	ReportFileError
-// Author:		JTA
-//
-// Purpose:		to report a file error to the standard error stream
-//
-// Arguments: operation, they type of file operation that failed
-//						name, the name of the file
-//
-// Precondition:	name.str() contains the name of the file
-// Postcondition: an appropiate error message is sent to cerr
-//
-//-----------------------------------------------------------------------------
-void ReportFileError(FileOperationErrorT operation, strstream& name)
-	{
-		cerr << endl;
+/// reports a file error to the standard error stream
+/// @param operation the type of file operation that failed
+/// @param name the name of the file
+/// @return void
+void ReportFileError(FileOperationErrorT operation, fs::path const& name) {
+  std::cerr << std::endl;
 
-		switch(operation)
-			{
-				case E_openForInput:
-						cerr << "Error: Unable to open file '" << name.str() << "' for input";
-						break;
-				case E_openForOutput:
-						cerr << "Error: Unable to open file '" << name.str() << "' for output";
-						break;
-				case E_output:
-						cerr << "Error trying to output to file '" << name.str() << "'";
-						break;
-				case E_input:
-						cerr << "Error trying to input from file '" << name.str() << "'";
-						break;
-				case E_nameReserved:
-						cerr << "Error: the file name '" << name.str() << "' is reserved by "
-									"the system and cannot be used.  Please use another.";
-						break;
-				case E_sameFile:
-						cerr << "Cannot use file '" << name.str() << "' for both input and "
-									"output.";
-						break;
+  switch (operation) {
+  case E_openForInput:
+    std::cerr << "Error: Unable to open file " << name << " for input";
+    break;
+  case E_openForOutput:
+    std::cerr << "Error: Unable to open file " << name << " for output";
+    break;
+  case E_output:
+    std::cerr << "Error trying to output to file " << name;
+    break;
+  case E_input:
+    std::cerr << "Error trying to input from file " << name;
+    break;
+  case E_nameReserved:
+    std::cerr << "Error: file name " << name
+              << " is system reserved. Please use another.";
+    break;
+  case E_sameFile:
+    std::cerr << "Cannot use file " << name << " for both input and output.";
+    break;
 
-				default: assert(0); // NotReached
-			}
+  default:
+    assert(0); // NotReached
+  }
 
-		// release buffer (frozen by calling name.str() )
-		name.rdbuf()->freeze(0);
+  std::cerr << std::endl;
+}
 
-		cerr << endl;
+/// checks if the file name is reserved by the system
+/// @param fileName the name of the file to check
+/// @return true if the file name is reserved, false otherwise
+bool IsFileNameReserved(fs::path const &fileName) {
+  std::string const name = fileName.filename();
 
-		//?!! if there is a problem with cerr it is important to find out during testing
-		assert(cerr);
-	}
+  // stricmp returns 0 if the strings are equal (case-insensitive)
+  for (auto reservedName : {"PRN", "LPT1", "LPT2"})
+    if (::strcasecmp(reservedName, name.c_str()) == 0)
+      return true;
 
-
-//-----------------------------------------------------------------------------
-// Function:	IsFileNameReserved
-// Author:		JTA
-//
-// Purpose:		To determine if the file name is reserved by the system.  If a
-//						file name is reserved by the system, the program may not behave as
-//						expected.  (e.g.  if "prn" is opened for input the program may
-//						lock up.)
-//
-// Returns:		true if the file name is reserved, false otherwise.
-//
-// Arguments: fileName: the name of the file to check
-//
-// Precondition:	fileName contains the name of the file to check
-// Postcondition: none
-//
-//-----------------------------------------------------------------------------
-bool IsFileNameReserved(strstream& fileName)
-	{
-		//!!? stricmp() is not ANSI (although BC++ documentation says that it is)
-
-		// stricmp returns 0 if the strings are equal (case-insensitive)
-
-		bool isReserved;
-
-		if(stricmp("PRN", fileName.str()) &&
-				stricmp("LPT1", fileName.str()) && stricmp("LPT2", fileName.str()) )
-			{
-				isReserved = false;
-			}
-		else
-			{
-				isReserved = true;
-			}
-
-		// release the buffer (frozen by calling fileName.str() )
-		fileName.rdbuf()->freeze(0);
-
-		return isReserved;
-
-	}
-
+  return false;
+}
 
 #endif
-
-

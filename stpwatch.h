@@ -1,5 +1,4 @@
-#ifndef J_STOPWATCH_H
-#define J_STOPWATCH_H
+#pragma once
 ///////////////////////////////////////////////////////////////////////////////
 //	StpWatch.h
 //
@@ -9,8 +8,6 @@
 //	start..stop..time..reset..start..time..time..reset..start..time..stop..
 //	start..stop..start..stop..time..reset..time..start..start..stop..time..
 //	You get the idea.
-//
-//  The accuracy is the same as clock() (about 50ms).
 //
 //	Useful as a profiler for programs, as long as you don't need too much
 //	accuracy.  If you need more accuracy, see "Zen of Code Optimization"
@@ -22,48 +19,30 @@
 //		For more information visit www.trentu.ca/~joallen.
 //
 ///////////////////////////////////////////////////////////////////////////////
+#include <chrono>
+#include <utility> // std::exchange
 
-// HEADER FILES
+class StopWatch {
+public:
+  using Clock = std::chrono::high_resolution_clock;
+  using Duration = Clock::duration;
 
-// standard
-#include <time.h>
+  void start() {
+    if (std::exchange(fIsTiming, true))
+      fStart = Clock::now();
+  }
 
-// my own
-#include "joshdefs.h"
+  void stop() {
+    if (std::exchange(fIsTiming, false))
+      fCumTime += Clock::now() - fStart;
+  }
 
-class StopWatch
-	{
-	public:
+  void reset() { fCumTime = {}; }
 
-		typedef float stopWatchT; // the type that the seconds are reported in
+  Duration time() { return fCumTime; }
 
-		StopWatch	(); // constructor
-
-		// start the timer
-		void start();
-
-		// stop the timer
-		void stop();
-
-		// return the time
-		stopWatchT	time();
-
-		// clears the time
-		void reset();
-
-		// copy constructor and assignment operator
-		// 	defaults are okay
-		// 		StopWatch (const StopWatch&);
-		//		StopWatch& operator= (const StopWatch&);
-
-		// destructor
-		~StopWatch() {}
-
-	private:
-
-		bool fIsTiming; 	// are we between start and stop?
-		clock_t fStart; 	// time when we hit the start button
-		clock_t	fCumTime; // the cummulative time
-	};
-
-#endif	// J_STOPWATCH_H
+private:
+  bool fIsTiming = false;   // are we between start and stop?
+  Clock::time_point fStart; // time when we hit the start button
+  Duration fCumTime;      // the cummulative time
+};
