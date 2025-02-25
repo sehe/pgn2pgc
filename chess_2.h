@@ -30,15 +30,15 @@ public:
 	ChessSquare() : fContents(empty), fStatus(none) {}
 	ChessSquare(E_contents contents, E_status status = none) : fContents(contents), fStatus(status) {}
 
-	bool isWhite() const {return TOBOOL(fContents == whitePawn || fContents == whiteKnight || fContents == whiteBishop || fContents == whiteRook || fContents == whiteQueen || fContents == whiteKing);}
-	bool isBlack() const {return TOBOOL(fContents == blackPawn || fContents == blackKnight || fContents == blackBishop || fContents == blackRook || fContents == blackQueen || fContents == blackKing);}
-	bool isEmpty() const {return TOBOOL(fContents == empty);}
-	bool isPawn() const {return TOBOOL(fContents == blackPawn || fContents == whitePawn);}
+	bool isWhite() const {return fContents == whitePawn || fContents == whiteKnight || fContents == whiteBishop || fContents == whiteRook || fContents == whiteQueen || fContents == whiteKing;}
+	bool isBlack() const {return fContents == blackPawn || fContents == blackKnight || fContents == blackBishop || fContents == blackRook || fContents == blackQueen || fContents == blackKing;}
+	bool isEmpty() const {return fContents == empty;}
+	bool isPawn() const {return fContents == blackPawn || fContents == whitePawn;}
 	E_contents contents() const {return fContents;}
 	E_status status() const {return fStatus;}
 
-	bool operator==(E_contents rhs) const { return TOBOOL(fContents == rhs); }
-	bool operator!=(E_contents rhs) const { return TOBOOL(fContents != rhs); }
+	bool operator==(E_contents rhs) const { return fContents == rhs; }
+	bool operator!=(E_contents rhs) const { return fContents != rhs; }
 
 	char pieceToChar() const;
 
@@ -50,7 +50,7 @@ private:
 inline
 bool IsSameColor(ChessSquare a, ChessSquare b)
 {
-	return TOBOOL(a.isWhite() && b.isWhite() || a.isBlack() && b.isBlack());
+	return a.isWhite() && b.isWhite() || a.isBlack() && b.isBlack();
 }
 
 struct ChessMove
@@ -66,10 +66,10 @@ public:
 	ChessMove(int y1, int x1, int y2, int x2, enum E_type kind = normal) : fRF(y1), fFF(x1), fRT(y2), fFT(x2), fType(kind) {}
 
 	bool operator==(const ChessMove& rhs) const {
-			return TOBOOL(rhs.fRF == fRF && rhs.fFF == fFF && rhs.fRT == fRT && rhs.fFT == fFT && rhs.fType == fType); }
-	bool operator!=(const ChessMove& rhs) const { return TOBOOL(!this->operator==(rhs)); }
-	bool isPromo() const {return TOBOOL(fType == promoKnight || fType == promoBishop || fType == promoRook || fType == promoQueen || fType == promoKing); }
-	bool isEnPassant() const {return TOBOOL(fType == whiteEnPassant || fType == blackEnPassant);}
+			return rhs.fRF == fRF && rhs.fFF == fFF && rhs.fRT == fRT && rhs.fFT == fFT && rhs.fType == fType; }
+	bool operator!=(const ChessMove& rhs) const { return !this->operator==(rhs); }
+	bool isPromo() const {return fType == promoKnight || fType == promoBishop || fType == promoRook || fType == promoQueen || fType == promoKing; }
+	bool isEnPassant() const {return fType == whiteEnPassant || fType == blackEnPassant;}
 	int rf() const {return fRF;}
 	int ff() const {return fFF;}
 	int rt() const {return fRT;}
@@ -91,10 +91,10 @@ public:
 	ChessMoveSAN(int y1, int x1, int y2, int x2, const string& SAN, enum E_type kind = normal) : ChessMove(y1, x1, y2, x2, kind), fSAN(SAN) {}
 	ChessMove move() {return ChessMove(rf(), ff(), rt(), ft(), type());}
 	string& san() {return fSAN;}
-	bool operator<(const ChessMoveSAN& b) const {return TOBOOL(fSAN < b.fSAN);}
-	bool operator>(const ChessMoveSAN& b) const {return TOBOOL(fSAN > b.fSAN);}
-	bool operator==(const ChessMoveSAN& b) const {return TOBOOL(fSAN == b.fSAN);}
-   bool operator!=(const ChessMoveSAN& b) const {return TOBOOL(fSAN != b.fSAN);}
+	bool operator<(const ChessMoveSAN& b) const {return fSAN < b.fSAN;}
+	bool operator>(const ChessMoveSAN& b) const {return fSAN > b.fSAN;}
+	bool operator==(const ChessMoveSAN& b) const {return fSAN == b.fSAN;}
+   bool operator!=(const ChessMoveSAN& b) const {return fSAN != b.fSAN;}
 private:
 	string fSAN;
 };
@@ -135,8 +135,8 @@ public:
 	bool move(const ChessMove&); // private, need to remove calls to external functions
 	bool processMove(const ChessMove& m); // make move and change status of game, colorToMove etc
    bool processMove(const ChessMove& m, List<ChessMove>&);
-	bool isWhiteToMove() const {return TOBOOL(fToMove == white);}
-	bool isBlackToMove() const {return TOBOOL(fToMove == black);}
+	bool isWhiteToMove() const {return fToMove == white;}
+	bool isBlackToMove() const {return fToMove == black;}
 
 
 	unsigned getCastle() const {return fCastle;}
@@ -226,7 +226,7 @@ void MoveToAlgebraic(const ChessMove& move, const Board& b, List<ChessMove>& all
 inline
 bool IsPromoChar(char c)
 {
-	return TOBOOL(toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R' || toupper(c) == 'K');
+	return toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R' || toupper(c) == 'K';
 }
 
 // case insensitive

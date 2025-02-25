@@ -75,12 +75,12 @@ void List<T>::add(const T& value)
 {
 	if(!fSize) // first call: populate
 	{
-		fFirst = New(Node(value));
-		CHECK_POINTER(fFirst);
-		fLast = fFirst;
+          fFirst = new Node(value);
+          CHECK_POINTER(fFirst);
+          fLast = fFirst;
 	} else
 	{
-		fLast->fNext = New(Node(value));
+		fLast->fNext = new Node(value);
 		CHECK_POINTER(fLast->fNext);
 		fLast = fLast->fNext;
 	}
@@ -101,7 +101,7 @@ void List<T>::remove(size_t index)
 	{
 		Node* tempNode = fFirst;
 		fFirst = fFirst->fNext;
-		Delete(tempNode);
+		delete tempNode;
 		tempNode = 0;
 
 	} else {
@@ -122,7 +122,7 @@ void List<T>::remove(size_t index)
 		{
 			fLast = current;
 		}
-		Delete(tempNode);
+		delete tempNode;
 		tempNode = 0;
 	}
 	--fSize;
@@ -149,7 +149,7 @@ void List<T>::makeEmpty()
 
 		fFirst = fFirst->fNext;
 
-		Delete (tempNode);
+		delete  tempNode;
 		tempNode = 0;
 		--fSize;
 	}

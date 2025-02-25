@@ -90,7 +90,7 @@ template<class T>
 inline
 bool PriorityQueue<T>::isEmpty() const
 	{
-		return TOBOOL(!fFirst);
+		return !fFirst;
 	}
 
 
@@ -139,7 +139,7 @@ PriorityQueue<T>& PriorityQueue<T>::operator=(const PriorityQueue<T>& b)
 
 						fFirst = fFirst->fNext;
 
-						Delete (tempNode);
+						delete  tempNode;
 						tempNode = 0;
 					}
 
@@ -147,7 +147,7 @@ PriorityQueue<T>& PriorityQueue<T>::operator=(const PriorityQueue<T>& b)
 				if(b.fFirst) // if source isn't empty
 					{
 						// set up fFirst
-						fFirst = New(Node(b.fFirst->fValue));
+						fFirst = new Node(b.fFirst->fValue);
 						CHECK_POINTER(fFirst);
 
 						// copy positon of fCurrent
@@ -159,7 +159,7 @@ PriorityQueue<T>& PriorityQueue<T>::operator=(const PriorityQueue<T>& b)
 
 						while(source)
 							{
-								target->fNext = New(Node(source->fValue));
+								target->fNext = new Node(source->fValue);
 								CHECK_POINTER(target);
 
 								target = target->fNext;
@@ -190,7 +190,7 @@ void PriorityQueue<T>::add (const T& addValue)
 	{
 		if(isEmpty()) // first call
 			{
-				fFirst = New(Node(addValue));
+				fFirst = new Node(addValue);
 
 				CHECK_POINTER(fFirst);
 
@@ -210,7 +210,7 @@ void PriorityQueue<T>::add (const T& addValue)
 				Node* temp = fFirst;
 				// set fCurrent to the same value, so that next() will always return
 				// the first item (it's common to forget to call gotoFirst())
-				fCurrent = fFirst = New(Node(addValue));
+				fCurrent = fFirst = new Node(addValue);
 				CHECK_POINTER(fFirst);
 				fFirst->fNext = temp;
 				++fSize;
@@ -228,7 +228,7 @@ void PriorityQueue<T>::add (const T& addValue)
 		// stick it between the two nodes
 		Node*  temp = current->fNext;
 
-		current->fNext = New(Node(addValue));
+		current->fNext = new Node(addValue);
 		CHECK_POINTER(current->fNext);
 		current = current->fNext;
 		current->fNext = temp;
@@ -304,7 +304,7 @@ void PriorityQueue<T>::remove(size_t index)
 	{
 		Node* tempNode = fFirst;
 		fFirst = fFirst->fNext;
-		Delete(tempNode);
+		delete tempNode;
 		tempNode = 0;
 
 	} else {
@@ -321,7 +321,7 @@ void PriorityQueue<T>::remove(size_t index)
 		Node* tempNode = current->fNext;
 		current->fNext = current->fNext->fNext;
 
-		Delete(tempNode);
+		delete tempNode;
 		tempNode = 0;
 	}
 
@@ -347,7 +347,7 @@ PriorityQueue<T>::~PriorityQueue()
 
 				fFirst = fFirst->fNext;
 
-				Delete (tempNode);
+				delete  tempNode;
 				tempNode = 0;
 				--fSize;
 			}

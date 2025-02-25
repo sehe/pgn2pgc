@@ -559,7 +559,7 @@ E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, std::ostream
 int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
   const size_t kLargestGame =
       0x4000; // too large will impede performance due to memmove
-  char *const gameBuffer = NewArray(char, kLargestGame + 1);
+  char *const gameBuffer = new char[kLargestGame + 1];
   CHECK_POINTER(gameBuffer);
   AdoptArray<char> gameAdopter(gameBuffer);
   char *gameBufferCurrent = gameBuffer;

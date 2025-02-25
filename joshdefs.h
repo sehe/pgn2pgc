@@ -35,12 +35,10 @@
 #include <cstdint>
 #define NDEBUG			 // turn off extra debugging and checking code
 #define NCAST				 // no new style casts: dynamic_cast<>, static_cast<>, etc.
-#define NO_BOOL_TYPE // no bool type
 //#define NNEW         // cannot overload new[]
 //	new returns NULL when it can't allocate enough memory,
 //		instead of throwing an exception
 #define NEW_RETURNS_NULL
-//#define USE_MEMCHECK // use versions of New() and Delete that check memory management //??! no longer fully trust them, as a GPE sometimes occures during heavy usage, need more investigation as to cause
 //#define USE_TRACE // TRACE is a macro used during debugging to quickly output the value of an identifier to stderr
 
 #include <cassert>
@@ -117,26 +115,6 @@ private:
 
 // DATA TYPES
 
-
-// MACROS
-
-//---------------------------------------------------------------------------
-//	Macro:	TOBOOL
-//  Author:	Joshua Allen
-//
-//	Arguments: x, an expression that should be either 0 or
-//							non-zero (usually 1)
-//
-//	Purpose: Converts an expression to boolean;
-//						avoids "initializing bool with int" warnings and errors
-//
-//---------------------------------------------------------------------------
-#ifdef NO_BOOL_TYPE
-#define TOBOOL(x) ((x)?true:false)
-#else
-#define TOBOOL(x) (x)
-#endif
-
 //---------------------------------------------------------------------------
 //	Function:	CHECK_POINTER
 //  Author:	Joshua Allen
@@ -175,11 +153,6 @@ private:
 #define TRACE(x) ((void)0)
 #endif
 
-// include at bottom so that memcheck.h will have the necessary definitions
-#ifndef J_MEMCHECK_H
-#include "memcheck.h" // New(), Delete()
-#endif
-
 //-----------------------------------------------------------------------------
 // got idea from std::auto_ptr
 template <class T>
@@ -187,7 +160,7 @@ class AdoptArray
 {
 public:
 	AdoptArray(T* ptr) : fPtr(ptr) {}
-	~AdoptArray() { DeleteArray(fPtr); fPtr = 0;}
+	~AdoptArray() { delete[] fPtr; fPtr = 0;}
 
 private:
 	AdoptArray(const AdoptArray&); // cannot copy

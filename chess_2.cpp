@@ -87,10 +87,10 @@ ChessSquare LetterToSquare(char SAN_FEN_Letter) {
 Board::Board()
     : fBoard(0), fCastle(noCastle), fStatus(notInCheck), fToMove(endOfGame),
       fPlysSince(0), fEnPassant(allCaptures), fMoveNumber(1) {
-  fBoard = NewArray(ChessSquare *, gRanks);
+  fBoard = new ChessSquare *[gRanks];
   CHECK_POINTER(fBoard);
   for (int i = 0; i < gRanks; ++i) {
-    fBoard[i] = NewArray(ChessSquare, gFiles);
+    fBoard[i] = new ChessSquare[gFiles];
     CHECK_POINTER(fBoard[i]);
   }
   processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -100,11 +100,11 @@ Board::Board(const Board &rhs)
     : fBoard(0), fToMove(rhs.fToMove), fStatus(rhs.fStatus),
       fCastle(rhs.fCastle), fEnPassant(rhs.allCaptures),
       fPlysSince(rhs.fPlysSince), fMoveNumber(rhs.fMoveNumber) {
-  fBoard = NewArray(ChessSquare *, gRanks);
+  fBoard = new ChessSquare *[gRanks];
   CHECK_POINTER(fBoard);
   int i;
   for (i = 0; i < gRanks; ++i) {
-    fBoard[i] = NewArray(ChessSquare, gFiles);
+    fBoard[i] = new ChessSquare[gFiles];
     CHECK_POINTER(fBoard[i]);
   }
   // copy contents
@@ -118,10 +118,10 @@ Board &Board::operator=(const Board &rhs) {
     // delete current contents
     int i;
     for (i = 0; i < gRanks; ++i) {
-      DeleteArray(fBoard[i]);
+      delete[] fBoard[i];
       fBoard[i] = 0;
     }
-    DeleteArray(fBoard);
+    delete[] fBoard;
     fBoard = 0;
 
     // create new board
@@ -132,10 +132,10 @@ Board &Board::operator=(const Board &rhs) {
     fPlysSince = rhs.fPlysSince;
     fMoveNumber = rhs.fMoveNumber;
 
-    fBoard = NewArray(ChessSquare *, gRanks);
+    fBoard = new ChessSquare *[gRanks];
     CHECK_POINTER(fBoard);
     for (i = 0; i < gRanks; ++i) {
-      fBoard[i] = NewArray(ChessSquare, gFiles);
+      fBoard[i] = new ChessSquare[gFiles];
       CHECK_POINTER(fBoard[i]);
     }
 
@@ -148,7 +148,7 @@ Board &Board::operator=(const Board &rhs) {
 }
 
 bool Board::processFEN(const string &FENPosition) {
-  char *const FEN = NewArray(char, FENPosition.length() + 1);
+  char *const FEN = new char[FENPosition.length() + 1];
   AdoptArray<char> adopter(FEN); // so that if return prematurely resource will
                                  // be released by destructor
   CHECK_POINTER(FEN);
@@ -459,10 +459,10 @@ bool Board::processMove(const ChessMove &m, List<ChessMove> &allMoves) {
 
 Board::~Board() {
   for (int i = 0; i < gRanks; ++i) {
-    DeleteArray(fBoard[i]);
+    delete[] fBoard[i];
     fBoard[i] = 0;
   }
-  DeleteArray(fBoard);
+  delete[] fBoard;
   fBoard = 0;
 }
 
@@ -1758,7 +1758,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
   assert(constSAN);
   assert(move);
 
-  char *san = NewArray(char, strlen(constSAN) + 1);
+  char *san = new char[strlen(constSAN) + 1];
   CHECK_POINTER(san);
   AdoptArray<char> sanAdopter(san);
 
@@ -1975,7 +1975,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
   assert(constSAN);
   assert(move);
 
-  char *san = NewArray(char, strlen(constSAN) + 1);
+  char *san = new char[strlen(constSAN) + 1];
   CHECK_POINTER(san);
   AdoptArray<char> sanAdopter(san);
 
