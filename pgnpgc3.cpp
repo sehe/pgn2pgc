@@ -24,7 +24,6 @@ namespace fs = std::filesystem;
 
 // .pgn to .pgc
 #include "chess_2.h"
-#include "strparse.h"
 #include "joshdefs.h"
 #include "pqueue_2.h"
 #include "list5.h"
@@ -168,14 +167,14 @@ const char* ParsePGNTags(const char* pgn, List<PGNTag>* tags)
 		PGNTag tag;
 		while(!isspace(*pgn) && *pgn != kPGNTagValueBegin[0] && *pgn != '\0')
 		{
-			tag.name.append((char)toupper(*pgn), 0, 1);
+			tag.name.append((char)toupper(*pgn));
 			++pgn;
 		}
 
 		SkipTo(&pgn, kPGNTagValueBegin);
 		while(*pgn != kPGNTagValueEnd && *pgn != '\0')
 		{
-			tag.value.append(*pgn, 0, 1);
+			tag.value.append(*pgn);
 			++pgn;
 		}
 		if(*pgn != '\0')
@@ -194,7 +193,7 @@ const char* ParsePGNTags(const char* pgn, List<PGNTag>* tags)
 // returns the element, or -1 if it didn't find it
 int FindElement(const string& target, PriorityQueue<ChessMoveSAN>& source)
 {
-	for(int i = 0; i < source.size(); ++i)
+	for(unsigned i = 0; i < source.size(); ++i)
 		if(source[i].san() == target)
 			return i;
 
@@ -239,20 +238,22 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 				if(token.length() && *pgn == ')')
 					break;
 
-				if(*pgn == '!' || *pgn == '?') // NAG
-					if(token.length())
-					{
-						break;
-					} else
-					{
-						while(!isspace(*pgn) && *pgn != '\0' && (*pgn == '!' || *pgn == '?'))
-						{
-							token.append(*pgn, 0, 1);
-							++pgn;
-						}
-						break;
-					}
-				token.append(*pgn, 0, 1);
+				if((*pgn == '!') || (*pgn == '?')) // NAG
+                {
+                    if(token.length())
+                    {
+                        break;
+                    } else
+                    {
+                        while(!isspace(*pgn) && *pgn != '\0' && (*pgn == '!' || *pgn == '?'))
+                        {
+                            token.append(*pgn);
+                            ++pgn;
+                        }
+                        break;
+                    }
+                }
+				token.append(*pgn);
 //				cout << "\ncurToken: " << token;
 				++pgn;
 				assert(token.length());
@@ -348,7 +349,7 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 			escapeToken = string(&token.c_str()[1]); //??! an escape sequence can have null, but this function uses char*, so it can't
 			while(*pgn != '\n' && *pgn != '\0')
 			{
-				escapeToken.append(*pgn, 0, 1);
+				escapeToken.append(*pgn);
 				pgn++;
 			}
 			reasonToBreak = escape;
@@ -418,8 +419,6 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 				while(SANMoves.next(&debug))
                 std::cout << debugI++ << " " << debug.san() << "\t";
 				SANMoves.gotoFirst();
-
-				TRACE(san);
 			}
 */
 //			std::cout << "\nMove: " << san << "\n";
@@ -427,16 +426,18 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 
 			pgc << (pgcByteT)FindElement(san, SANMoves);
 
-			if(i == moves.size() - 1)
-				if(reasonToBreak == RAVBegin)
-				{
-					pgc << kMarkerRAVBegin;
+			if(i == (moves.size() - 1))
+            {
+                if(reasonToBreak == RAVBegin)
+                {
+                    pgc << kMarkerRAVBegin;
                     Board temp = game;
-					gameResult = ProcessMoveSequence(temp, pgn, pgc);
-				} else // SEHE FIXME hanging else
-				{
-					gPreviousGamePos = game; // their can't be two rav's at the same level for the same move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1... (pgn formal syntax)
-				}
+                    gameResult = ProcessMoveSequence(temp, pgn, pgc);
+                } else // SEHE FIXME hanging else
+                {
+                    gPreviousGamePos = game; // their can't be two rav's at the same level for the same move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1... (pgn formal syntax)
+                }
+            }
 
 			gTimer[7].start();
 			game.processMove(cm, allMoves);
@@ -482,7 +483,6 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 // sets endOfGame to the place in pgn where the game stopped being processed
 E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, std::ostream& pgc)
 {
-
 	assert(pgn);
 	assert(endOfGame);
 	List<PGNTag> tags;
@@ -501,10 +501,10 @@ E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, std::ostream
 	// output the tags in the right order
 	const char* sevenTagRoster[] = {"EVENT", "SITE", "DATE", "ROUND", "WHITE", "BLACK", "RESULT",};
 	int i, j;
-	for(i = 0; i < sizeof(sevenTagRoster)/sizeof(sevenTagRoster[0]); ++i)
+	for(i = 0; i < int(sizeof(sevenTagRoster)/sizeof(sevenTagRoster[0])); ++i)
 	{
 		bool foundTag = false;
-		for(j = 0; j < tags.size() && !foundTag; ++j)
+		for(j = 0; j < int(tags.size()) && !foundTag; ++j)
 		{
 			if(tags[j].name == sevenTagRoster[i])
 			{
@@ -530,7 +530,7 @@ E_gameTermination PgnToPgc(const char* pgn, const char** endOfGame, std::ostream
 	}
 	// any remaining tags
 	//??! case information is lost when parsing tags
-	for(i = 0; i < tags.size(); ++i)
+	for(i = 0; i < int(tags.size()); ++i)
 	{
 		assert(tags[i].name.length() < UCHAR_MAX); //??! need to deal with this
 		pgc << kMarkerTagPair << (pgcByteT)tags[i].name.length() << tags[i].name
@@ -572,39 +572,24 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
   pgn >> std::noskipws;
   unsigned totalGames = 0;
   while (!pgn.bad() && pgc.good()) {
-    std::cout << '.'; // USER UPDATE
-    //?!! should work, but it'll be interesting to know what happens when
-    //endOfGame == gameBuffer and pgnGame has a buffer size of 0
+    std::cout << '.' << std::flush; // USER UPDATE
 
-    std::ostringstream pgnGame;
     std::ostringstream pgcGame;
 
     if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
                     //!badbit (illegal operation), but need to clear failbit
-                    //!because it fails when pgnGame reaches eof()
+                    //!because it fails when pgn reaches eof()
       pgn.clear();
 
-    pgn >> pgnGame.rdbuf();
+    pgn.read(gameBufferCurrent,
+             kLargestGame - (gameBufferCurrent - gameBuffer));
+    std::streamsize received = pgn.gcount();
 
-    /*
-                    if(pgn.bad())
-                            TRACE(pgn.bad());
-
-                    TRACE(pgn);
-                    TRACE(!pgn);
-                    TRACE(pgn.good());
-                    TRACE(pgn.eof());
-                    TRACE(pgn.fail());
-                    TRACE(pgn.bad());
-                    TRACE((int)*gameBuffer);
-    */
-    assert(pgnGame.tellp() <= kLargestGame - (gameBufferCurrent - gameBuffer));
-    TRACE(pgnGame.tellp());
-    gameBufferCurrent[pgnGame.tellp()] = '\0';
+    gameBufferCurrent[received] = '\0';
 
     const char *endOfGame = 0;
     //		gTimer[2].start();
-    TRACE(++totalGames);
+    ++totalGames;
     E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
     //		gTimer[2].stop();
 
@@ -627,7 +612,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
     memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
     gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
 
-    if (!pgnGame || !pgcGame || !pgn.good() && *gameBuffer == '\0') {
+    if (!pgcGame || (!pgn.good() && *gameBuffer == '\0')) {
       break;
     }
   }
@@ -769,8 +754,8 @@ int main(int argc, char *argv[]) {
   // and then delete the old file and rename the temporary file.
   bool inputOutputSameFile =
       inputFileName.lexically_normal() == outputFileName.lexically_normal();
-  inputOutputSameFile = true;
-  outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
+  if (inputOutputSameFile)
+    outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
 
   // open the ouput stream
   // use ios::binary so that we don't limit the programs possible uses
@@ -785,8 +770,8 @@ int main(int argc, char *argv[]) {
 
   // Let user know that what we are about to do
   std::cout << "\nConverting the PGN file " << inputFileName
-            << "\n to PGC format and sending the output to file '"
-            << outputFileName << "'";
+            << "\n to PGC format and sending the output to file "
+            << outputFileName << "";
 
   //	gTimer[1].start();
   unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
@@ -797,7 +782,7 @@ int main(int argc, char *argv[]) {
             << " processed.";
 
   if (!outputStream.good()) {
-    ReportFileError(E_output, inputFileName);
+    ReportFileError(E_output, outputFileName);
     return EXIT_FAILURE;
   }
 
@@ -806,16 +791,16 @@ int main(int argc, char *argv[]) {
     outputStream.close();
 
     // delete oldfile
-    int systemCallSuccess = remove(inputFileName);
-    if (systemCallSuccess) // non-zero on failure
-    {
+    std::error_code ec;
+    remove(inputFileName, ec);
+    if (ec) {
       // print the appropiate message
-      perror("\nUnable to delete old input file");
+      std::cerr << "Unable to delete old input file " + ec.message()
+                << std::endl;
       return EXIT_FAILURE;
     }
 
     // rename temp file to old file
-    std::error_code ec;
     fs::rename(outputFileName, inputFileName, ec);
 
     if (ec) // non-zero on failure
@@ -832,10 +817,10 @@ int main(int argc, char *argv[]) {
 
   gTimer[0].stop();
 
-  for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI) {
-    TRACE(debugI);
-    TRACE(gTimer[debugI].time());
-  }
+  // SEHE TODO
+  //for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI) {
+    //gTimer[debugI].time();
+  //}
 
   return EXIT_SUCCESS;
 }

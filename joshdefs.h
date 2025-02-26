@@ -39,7 +39,6 @@
 //	new returns NULL when it can't allocate enough memory,
 //		instead of throwing an exception
 #define NEW_RETURNS_NULL
-//#define USE_TRACE // TRACE is a macro used during debugging to quickly output the value of an identifier to stderr
 
 #include <cassert>
 #include <cstddef>
@@ -62,10 +61,7 @@ struct string {
   bool is_null() const { return impl_.empty(); }
   char const* c_str() const { return impl_.c_str(); }
 
-  void append(char ch, size_t offset = 0, size_t count = 1) {
-    assert(offset == 0);
-    impl_.append(count, ch);
-  }
+  void append(char ch) { impl_.append(1ul, ch); }
   void append(string const &s) { impl_.append(s.impl_); }
 
   void insert(size_t pos, char ch) { impl_.insert(pos, 1, ch); }
@@ -144,13 +140,6 @@ private:
   }
 #else
 #define CHECK_POINTER(p) ((void)0)
-#endif
-
-//-----------------------------------------------------------------------------
-#ifdef USE_TRACE
-#define TRACE(x) cerr<<"\n" #x ": '"<<( x )<<"'"
-#else
-#define TRACE(x) ((void)0)
 #endif
 
 //-----------------------------------------------------------------------------

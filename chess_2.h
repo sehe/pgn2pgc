@@ -15,9 +15,9 @@ char ChessFileToChar(unsigned file);
 // 0 = '1', 1 = '1'...
 char ChessRankToChar(unsigned rank);
 // 'a' = 0
-unsigned ChessCharToFile(char file);
+int ChessCharToFile(char file);
 // '1' = 0
-unsigned ChessCharToRank(char rank);
+int ChessCharToRank(char rank);
 
 struct ChessSquare
 {
@@ -50,7 +50,7 @@ private:
 inline
 bool IsSameColor(ChessSquare a, ChessSquare b)
 {
-	return a.isWhite() && b.isWhite() || a.isBlack() && b.isBlack();
+	return (a.isWhite() && b.isWhite()) || (a.isBlack() && b.isBlack());
 }
 
 struct ChessMove
