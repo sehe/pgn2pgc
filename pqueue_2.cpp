@@ -9,10 +9,15 @@ int main() {
 
   assert(l.isEmpty());
   for (int i = 200; i > 1; --i) {
-    l.add(rand());
+    auto v = rand();
+    l.add(v);
+    if ((i % 50) == 0) { // include some duplicates
+      l.add(v);
+    }
     assert(!l.isEmpty());
   }
 
+  std::cout << "First dump: " << std::endl;
   int val = -2;
   std::cout << std::endl << std::endl;
   while (l.next(&val)) {
@@ -25,6 +30,7 @@ int main() {
   assert(!l2.next(&val));
 
   std::cout << std::endl << std::endl;
+  std::cout << "Second dump: " << std::endl;
   while (l.next(&val)) {
     std::cout << "\t" << val;
   }
