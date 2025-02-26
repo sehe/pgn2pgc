@@ -2,44 +2,37 @@
 #define J_JOSHDEFS_H
 ///////////////////////////////////////////////////////////////////////////////
 //
-//	JoshDefs.h
+//  JoshDefs.h
 //
-//	January 1995.
+//  January 1995.
 //
 //  Contents: Common shared data types and macros
 //
-//	The fact that every file includes this one can be very useful.
+//  The fact that every file includes this one can be very useful.
 //
-//	ABOUT THIS FILE: Please send any questions, comments, suggestions, bug-
-//		reports, bug-fixes, and useful modifications to joallen@trentu.ca.
-//		Released to the public domain.
-//		For more information visit www.trentu.ca/~joallen.
+//  ABOUT THIS FILE: Please send any questions, comments, suggestions, bug-
+//      reports, bug-fixes, and useful modifications to joallen@trentu.ca.
+//      Released to the public domain.
+//      For more information visit www.trentu.ca/~joallen.
 //
 ///////////////////////////////////////////////////////////////////////////////
 //
-//	REVISION LOG:
+//  REVISION LOG:
 //
-//	Date			By	Revision
+//  Date  By  Revision
 //
-//	1999			JTA	Removed old complex macros and functions of NewCheck and
-//								replaced with CHECK_POINTER macro.  If exceptions are used
-//								you can use the NEW_RETURNS_NULL macro to essentially comment
-//								out CHECK_POINTER.
-//  2000      JTA Added MemCheck.h, with code written mostly by Dr. Domzy.
+//  1999  JTA Removed old complex macros and functions of NewCheck and
+//            replaced with CHECK_POINTER macro.  If exceptions are used
+//            you can use the NEW_RETURNS_NULL macro to essentially comment
+//            out CHECK_POINTER.
+//  2000  JTA Added MemCheck.h, with code written mostly by Dr. Domzy.
+//  2025  sehe major cleanup, modernization, and simplification
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-// Conditional compilation macros
-//		Don't actually define them here, instead do it from within the IDE or on
-//		the command line.
-#include <cstdint>
-#define NDEBUG			 // turn off extra debugging and checking code
-#define NCAST				 // no new style casts: dynamic_cast<>, static_cast<>, etc.
-//#define NNEW         // cannot overload new[]
-//	new returns NULL when it can't allocate enough memory,
-//		instead of throwing an exception
-#define NEW_RETURNS_NULL
-
+// sehe: TODO remove stand-in for non-standard Borland string type
+// interface hints from
+// https://sourceforge.net/p/owlnext/wiki/Replacing_the_Borland_C++_Class_Libraries/
 #include <cassert>
 #include <cstddef>
 #include <iomanip>
@@ -104,58 +97,7 @@ private:
 };
 
 // HEADER FILES
-
-#include <cassert>
-#include <cstdlib>
-#include <iostream>
-
-// DATA TYPES
-
-//---------------------------------------------------------------------------
-//	Function:	CHECK_POINTER
-//  Author:	Joshua Allen
-//
-//	Arguments:	p, a pointer
-//
-//	Purpose:	to assert that a pointer is not null;
-//						 used after operator new
-//
-//	Behavior: if pointer is == null then an error message is printed to cerr
-//						and the program exits;
-//						does nothing otherwise
-//
-//	Special:	assert(0) is used in case we're in debug mode so that we can
-//							see line & file info, also why a macro is used instead of a
-//							function
-//
-//---------------------------------------------------------------------------
-#ifdef NEW_RETURNS_NULL
-#define CHECK_POINTER(p)                                                       \
-  {                                                                            \
-    if (!(p)) {                                                                \
-      std::cerr << "\nError: out of dynamic memory, exiting..\n";              \
-      assert(0);                                                               \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
-  }
-#else
-#define CHECK_POINTER(p) ((void)0)
-#endif
-
-//-----------------------------------------------------------------------------
-// got idea from std::auto_ptr
-template <class T>
-class AdoptArray
-{
-public:
-	AdoptArray(T* ptr) : fPtr(ptr) {}
-	~AdoptArray() { delete[] fPtr; fPtr = 0;}
-
-private:
-	AdoptArray(const AdoptArray&); // cannot copy
-	AdoptArray& operator=(const AdoptArray&);
-	T* fPtr;
-};
-
+#include <memory>
+template <class T> using AdoptArray = std::unique_ptr<T[]>;
 
 #endif // JoshDefs.h

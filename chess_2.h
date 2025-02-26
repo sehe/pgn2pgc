@@ -56,47 +56,66 @@ bool IsSameColor(ChessSquare a, ChessSquare b)
 struct ChessMove
 {
 public:
-	enum E_type { normal,
-		promoKnight, promoBishop, promoRook, promoQueen, promoKing,
-		whiteEnPassant, blackEnPassant, // technically not necessary, but makes things easier
-		whiteCastleKS, whiteCastleQS, blackCastleKS, blackCastleQS,
-		};
+  enum E_type {
+    normal,
+    promoKnight,
+    promoBishop,
+    promoRook,
+    promoQueen,
+    promoKing,
+    whiteEnPassant,
+    blackEnPassant, // technically not necessary, but makes things easier
+    whiteCastleKS,
+    whiteCastleQS,
+    blackCastleKS,
+    blackCastleQS,
+  };
 
-	ChessMove() : fRF(0), fFF(0), fRT(0), fFT(0), fType(normal) {}
-	ChessMove(int y1, int x1, int y2, int x2, enum E_type kind = normal) : fRF(y1), fFF(x1), fRT(y2), fFT(x2), fType(kind) {}
+  ChessMove() : fRF(0), fFF(0), fRT(0), fFT(0), fType(normal) {}
+  ChessMove(int y1, int x1, int y2, int x2, enum E_type kind = normal)
+      : fRF(y1), fFF(x1), fRT(y2), fFT(x2), fType(kind) {}
 
-	bool operator==(const ChessMove& rhs) const {
-			return rhs.fRF == fRF && rhs.fFF == fFF && rhs.fRT == fRT && rhs.fFT == fFT && rhs.fType == fType; }
-	bool operator!=(const ChessMove& rhs) const { return !this->operator==(rhs); }
-	bool isPromo() const {return fType == promoKnight || fType == promoBishop || fType == promoRook || fType == promoQueen || fType == promoKing; }
-	bool isEnPassant() const {return fType == whiteEnPassant || fType == blackEnPassant;}
-	int rf() const {return fRF;}
-	int ff() const {return fFF;}
-	int rt() const {return fRT;}
-	int ft() const {return fFT;}
-	E_type const& type() const {return fType;}
-	E_type & type() {return fType;}
+  bool operator==(const ChessMove &rhs) const {
+    return rhs.fRF == fRF && rhs.fFF == fFF && rhs.fRT == fRT &&
+           rhs.fFT == fFT && rhs.fType == fType;
+  }
+  bool operator!=(const ChessMove &rhs) const { return !this->operator==(rhs); }
+  bool isPromo() const {
+    return fType == promoKnight || fType == promoBishop || fType == promoRook ||
+           fType == promoQueen || fType == promoKing;
+  }
+  bool isEnPassant() const {
+    return fType == whiteEnPassant || fType == blackEnPassant;
+  }
+  int rf() const { return fRF; }
+  int ff() const { return fFF; }
+  int rt() const { return fRT; }
+  int ft() const { return fFT; }
+  E_type const &type() const { return fType; }
+  E_type &type() { return fType; }
 
 private:
-
-    int fRF, fFF, fRT, fFT; // row from, file from, row to, file to //!?? keep
-                            // signed int so that can use in expressions that
-                            // depend on signed values
-	E_type fType;
+  int fRF, fFF, fRT, fFT; // row from, file from, row to, file to //!?? keep
+                          // signed int so that can use in expressions that
+                          // depend on signed values
+  E_type fType;
 };
 
-class ChessMoveSAN: public ChessMove {
+class ChessMoveSAN : public ChessMove {
 public:
-	ChessMoveSAN() : ChessMove() {}
-	ChessMoveSAN(int y1, int x1, int y2, int x2, const string& SAN, enum E_type kind = normal) : ChessMove(y1, x1, y2, x2, kind), fSAN(SAN) {}
-	ChessMove move() {return ChessMove(rf(), ff(), rt(), ft(), type());}
-	string& san() {return fSAN;}
-	bool operator<(const ChessMoveSAN& b) const {return fSAN < b.fSAN;}
-	bool operator>(const ChessMoveSAN& b) const {return fSAN > b.fSAN;}
-	bool operator==(const ChessMoveSAN& b) const {return fSAN == b.fSAN;}
-   bool operator!=(const ChessMoveSAN& b) const {return fSAN != b.fSAN;}
+  ChessMoveSAN() : ChessMove() {}
+  ChessMoveSAN(int y1, int x1, int y2, int x2, const string &SAN,
+               enum E_type kind = normal)
+      : ChessMove(y1, x1, y2, x2, kind), fSAN(SAN) {}
+  ChessMove move() const { return ChessMove(rf(), ff(), rt(), ft(), type()); }
+  string &san() { return fSAN; }
+  bool operator<(const ChessMoveSAN &b) const { return fSAN < b.fSAN; }
+  bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
+  bool operator==(const ChessMoveSAN &b) const { return fSAN == b.fSAN; }
+  bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
+
 private:
-	string fSAN;
+  string fSAN;
 };
 
 
@@ -110,7 +129,7 @@ enum E_gameCheckStatus {
 	inStalemate,
 	};
 
-
+using SANQueue = PriorityQueue<ChessMoveSAN>;
 //-----------------------------------------------------------------------------
 class Board
 {
@@ -149,7 +168,7 @@ public:
 	size_t files() const {return gFiles;}
 
 	void genLegalMoves(List<ChessMove>*);
-	void genLegalMoveSet(List<ChessMove>*, PriorityQueue<ChessMoveSAN>*); // adds the moves to the list and the SAN representations to the queue
+	void genLegalMoveSet(List<ChessMove>*, SANQueue*); // adds the moves to the list and the SAN representations to the queue
 
 	void moveToAlgebraic(string*, const ChessMove&); // no abiguities, move is not checked for legality
 	void moveToAlgebraic(string*, const ChessMove&, List<ChessMove>&);
@@ -157,7 +176,7 @@ public:
 	bool algebraicToMove(ChessMove*, const char[]);
 	bool algebraicToMove(ChessMove*, const char[], List<ChessMove>&);
 
-	bool algebraicToSAN(string*, const string&, List<ChessMove>&, PriorityQueue<ChessMoveSAN>&); // cleans up move
+	bool algebraicToSAN(string*, const string&, List<ChessMove>&, SANQueue&); // cleans up move
 
    bool canCaptureSquare(size_t r, size_t f);
 
@@ -174,14 +193,14 @@ public:
 
 private:
 
-	void disambiguateMoves(PriorityQueue<ChessMoveSAN>&);
-	void disambiguate(const ChessMove&, string*, PriorityQueue<ChessMoveSAN>&);
+	void disambiguateMoves(SANQueue&);
+	void disambiguate(const ChessMove&, string*, SANQueue&);
 	void genPseudoLegalMoves(List<ChessMove>*);
-	void genPseudoLegalMoves(List<ChessMove>*, PriorityQueue<ChessMoveSAN>*);
-	void genLegalMoves(List<ChessMove>*, PriorityQueue<ChessMoveSAN>*);
-	void addMove(int rf, int ff, int rt, int ft, ChessMove::E_type type, List<ChessMove>* moves, PriorityQueue<ChessMoveSAN>* allSAN);
+	void genPseudoLegalMoves(List<ChessMove>*, SANQueue*);
+	void genLegalMoves(List<ChessMove>*, SANQueue*);
+	void addMove(int rf, int ff, int rt, int ft, ChessMove::E_type type, List<ChessMove>* moves, SANQueue* allSAN);
 	void moveToAlgebraicAmbiguity(string*, const ChessMove&);
-	void removeIllegalMoves(List<ChessMove>*, PriorityQueue<ChessMoveSAN>*);
+	void removeIllegalMoves(List<ChessMove>*, SANQueue*);
 
 
 	ChessSquare** fBoard;

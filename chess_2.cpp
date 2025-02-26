@@ -1,10 +1,10 @@
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 
 #include "chess_2.h"
 #include "joshdefs.h"
 #include "list5.h"
-#include "pqueue_2.h"
 #include "stpwatch.h"
 #include "strparse.h"
 
@@ -88,10 +88,8 @@ Board::Board()
     : fBoard(0), fToMove(endOfGame), fStatus(notInCheck), fCastle(noCastle),
       fEnPassant(allCaptures), fPlysSince(0), fMoveNumber(1) {
   fBoard = new ChessSquare *[gRanks];
-  CHECK_POINTER(fBoard);
   for (int i = 0; i < int(gRanks); ++i) {
     fBoard[i] = new ChessSquare[gFiles];
-    CHECK_POINTER(fBoard[i]);
   }
   processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
@@ -101,11 +99,9 @@ Board::Board(const Board &rhs)
       fCastle(rhs.fCastle), fEnPassant(rhs.allCaptures),
       fPlysSince(rhs.fPlysSince), fMoveNumber(rhs.fMoveNumber) {
   fBoard = new ChessSquare *[gRanks];
-  CHECK_POINTER(fBoard);
   int i;
   for (i = 0; i < int(gRanks); ++i) {
     fBoard[i] = new ChessSquare[gFiles];
-    CHECK_POINTER(fBoard[i]);
   }
   // copy contents
   for (i = 0; i < int(gRanks); ++i)
@@ -133,10 +129,8 @@ Board &Board::operator=(const Board &rhs) {
     fMoveNumber = rhs.fMoveNumber;
 
     fBoard = new ChessSquare *[gRanks];
-    CHECK_POINTER(fBoard);
     for (i = 0; i < int(gRanks); ++i) {
       fBoard[i] = new ChessSquare[gFiles];
-      CHECK_POINTER(fBoard[i]);
     }
 
     // copy contents
@@ -151,7 +145,6 @@ bool Board::processFEN(const string &FENPosition) {
   char *const FEN = new char[FENPosition.length() + 1];
   AdoptArray<char> adopter(FEN); // so that if return prematurely resource will
                                  // be released by destructor
-  CHECK_POINTER(FEN);
 
   strcpy(FEN, FENPosition.c_str());
 
@@ -500,7 +493,7 @@ bool Board::algebraicToMove(ChessMove *move, const char SAN[],
 }
 
 void Board::genLegalMoveSet(List<ChessMove> *allMoves,
-                            PriorityQueue<ChessMoveSAN> *allSAN) {
+                            SANQueue *allSAN) {
   assert(allMoves);
   assert(allSAN);
   // should combine genLegalMoves and moveToAlgebraic effeciently
@@ -511,7 +504,7 @@ void Board::genLegalMoveSet(List<ChessMove> *allMoves,
 
 inline void Board::addMove(int rf, int ff, int rt, int ft,
                            ChessMove::E_type type, List<ChessMove> *moves,
-                           PriorityQueue<ChessMoveSAN> *allSAN) {
+                           SANQueue *allSAN) {
   string sanValue;
   moves->add(ChessMove(rf, ff, rt, ft, type));
   moveToAlgebraicAmbiguity(&sanValue, ChessMove(rf, ff, rt, ft, type));
@@ -519,7 +512,7 @@ inline void Board::addMove(int rf, int ff, int rt, int ft,
 }
 
 void Board::genLegalMoves(List<ChessMove> *allMoves,
-                          PriorityQueue<ChessMoveSAN> *allSAN) {
+                          SANQueue *allSAN) {
   assert(allMoves);
   assert(allSAN);
   genPseudoLegalMoves(allMoves, allSAN);
@@ -615,7 +608,7 @@ void Board::genLegalMoves(List<ChessMove> *allMoves,
 }
 
 void Board::removeIllegalMoves(List<ChessMove> *allMoves,
-                               PriorityQueue<ChessMoveSAN> *allSAN) {
+                               SANQueue *allSAN) {
   bool isFound = false;
   ChessSquare::E_contents target =
       toMove() == white ? ChessSquare::whiteKing : ChessSquare::blackKing;
@@ -738,7 +731,7 @@ void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
 }
 
 void Board::genPseudoLegalMoves(List<ChessMove> *moves,
-                                PriorityQueue<ChessMoveSAN> *allSAN) {
+                                SANQueue *allSAN) {
   assert(moves);
   assert(allSAN);
 
@@ -1093,8 +1086,7 @@ bool Board::canCaptureSquare(size_t targetRank, size_t targetFile) {
   return false;
 }
 
-void Board::disambiguate(const ChessMove &move, string *san,
-                         PriorityQueue<ChessMoveSAN> &allSAN) {
+void Board::disambiguate(const ChessMove &move, string *san, SANQueue &allSAN) {
   if (san->length()) {
     bool conflict = false, rankConflict = false, fileConflict = false;
     for (int i = 0; i < int(allSAN.size()); ++i) {
@@ -1129,7 +1121,7 @@ void Board::disambiguate(const ChessMove &move, string *san,
   }
 }
 
-void Board::disambiguateMoves(PriorityQueue<ChessMoveSAN> &allSAN) {
+void Board::disambiguateMoves(SANQueue &allSAN) {
   bool ambiguity = false;
   int i;
   for (i = 0; i < (signed)allSAN.size() - 1; ++i) {
@@ -1763,7 +1755,6 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
   assert(move);
 
   char *san = new char[strlen(constSAN) + 1];
-  CHECK_POINTER(san);
   AdoptArray<char> sanAdopter(san);
 
   strcpy(san, constSAN);
@@ -1980,7 +1971,6 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
   assert(move);
 
   char *san = new char[strlen(constSAN) + 1];
-  CHECK_POINTER(san);
   AdoptArray<char> sanAdopter(san);
 
   strcpy(san, constSAN);
@@ -2212,7 +2202,7 @@ int main() {
   Board b;
 
   while (cin.good()) {
-    PriorityQueue<ChessMoveSAN> set;
+    Queue set;
     List<ChessMove> moves;
 
     b.display();

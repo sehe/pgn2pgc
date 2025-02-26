@@ -73,8 +73,9 @@ ToLittleEndian gToLittleEndian;
 // change result tag to one byte // remove length info as well
 // remove date length info (it's always the same) and change to byte sequence (e.g. int-2 year int-2 month int-1 day)
 
-#include <cstring>
 #include "list5.h"
+#include <cstring>
+#include <iostream>
 
 static const pgcByteT kMarkerBeginGameReduced = 0x01;
 static const pgcByteT kMarkerTagPair = 0x02;
@@ -191,7 +192,7 @@ const char* ParsePGNTags(const char* pgn, List<PGNTag>* tags)
 }
 
 // returns the element, or -1 if it didn't find it
-int FindElement(const string& target, PriorityQueue<ChessMoveSAN>& source)
+int FindElement(const string& target, SANQueue& source)
 {
 	for(unsigned i = 0; i < source.size(); ++i)
 		if(source[i].san() == target)
@@ -377,7 +378,7 @@ E_gameTermination ProcessMoveSequence(Board& game, const char*& pgn, std::ostrea
 		gTimer[4].start();
 		for(size_t i = 0; i < moves.size(); ++i)
 		{
-			PriorityQueue<ChessMoveSAN> SANMoves;
+			SANQueue SANMoves;
 			List<ChessMove> allMoves;
 			gTimer[2].start();
 			game.genLegalMoveSet(&allMoves, &SANMoves); // 57%
@@ -560,7 +561,6 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
   const size_t kLargestGame =
       0x4000; // too large will impede performance due to memmove
   char *const gameBuffer = new char[kLargestGame + 1];
-  CHECK_POINTER(gameBuffer);
   AdoptArray<char> gameAdopter(gameBuffer);
   char *gameBufferCurrent = gameBuffer;
 
@@ -574,7 +574,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
   while (!pgn.bad() && pgc.good()) {
     std::cout << '.' << std::flush; // USER UPDATE
 
-    std::ostringstream pgcGame;
+    std::ostringstream pgcGame(std::ios::binary);
 
     if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
                     //!badbit (illegal operation), but need to clear failbit
@@ -604,7 +604,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
       std::cout << "\n Parsing error (may be end-of-file).";
       break; // return gamesProcessed; //??! needs fixing .eof()
     default:
-      pgc << pgcGame.rdbuf();
+      pgc << pgcGame.str();
       ++gamesProcessed;
       break;
     }
@@ -612,7 +612,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
     memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
     gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
 
-    if (!pgcGame || (!pgn.good() && *gameBuffer == '\0')) {
+    if (!pgcGame || (!pgn.good() && gameBuffer[0] == '\0')) {
       break;
     }
   }
