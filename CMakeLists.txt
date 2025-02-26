@@ -7,3 +7,6 @@ add_executable(pgn2pgc pgnpgc3.cpp
     stpwatch.cpp
     strparse.cpp
 )
+
+add_executable(test_list list5.cpp)
+target_compile_definitions(test_list PRIVATE TEST)
