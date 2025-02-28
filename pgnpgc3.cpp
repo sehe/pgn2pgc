@@ -13,8 +13,8 @@ namespace fs = std::filesystem;
 #include "joshdefs.h"
 #include "list5.h"
 
-using pgcByteT = int8_t;        // one byte (two's complement)
-using pgcWordT = int16_t;       // two bytes (two's complement)
+using pgcByteT       = int8_t;  // one byte (two's complement)
+using pgcWordT       = int16_t; // two bytes (two's complement)
 using pgcDoubleWordT = int32_t; // four bytes (two's complement)
 
 // must be converted to little-endian
@@ -22,31 +22,31 @@ using pgcDoubleWordT = int32_t; // four bytes (two's complement)
 // Don Libes, 1993 pp. 121-3
 //??! This code still needs to be tested on big or big-little endian machines
 class ToLittleEndian {
-private:
-  void (*fSwapFunc)(pgcWordT, char[]);
-  static void byteSwap(pgcWordT w, char swaped[]) {
-    assert(swaped);
-    char *source = (char *)&w;
-    swaped[0] = source[1];
-    swaped[1] = source[0];
-  }
-  static void noSwap(pgcWordT w, char c[]) {
-    assert(c);
-    char *source = (char *)&w;
-    c[0] = source[0];
-    c[1] = source[1];
-  }
+  private:
+    void (*fSwapFunc)(pgcWordT, char[]);
+    static void byteSwap(pgcWordT w, char swaped[]) {
+        assert(swaped);
+        char* source = (char*)&w;
+        swaped[0]    = source[1];
+        swaped[1]    = source[0];
+    }
+    static void noSwap(pgcWordT w, char c[]) {
+        assert(c);
+        char* source = (char*)&w;
+        c[0]         = source[0];
+        c[1]         = source[1];
+    }
 
-public:
-  ToLittleEndian() { // what endian is the machine we're using?
-    const pgcWordT testValue = 0x0100;
-    char *cp = (char *)&testValue;
-    if (*cp == 0x01)
-      fSwapFunc = &ToLittleEndian::byteSwap;
-    else
-      fSwapFunc = &ToLittleEndian::noSwap;
-  }
-  void operator()(pgcWordT w, char c[]) { fSwapFunc(w, c); }
+  public:
+    ToLittleEndian() { // what endian is the machine we're using?
+        pgcWordT const testValue = 0x0100;
+        char*          cp        = (char*)&testValue;
+        if (*cp == 0x01)
+            fSwapFunc = &ToLittleEndian::byteSwap;
+        else
+            fSwapFunc = &ToLittleEndian::noSwap;
+    }
+    void operator()(pgcWordT w, char c[]) { fSwapFunc(w, c); }
 };
 
 ToLittleEndian gToLittleEndian;
@@ -64,118 +64,118 @@ ToLittleEndian gToLittleEndian;
 #include <cstring>
 #include <iostream>
 
-[[maybe_unused]] static const pgcByteT kMarkerBeginGameReduced = 0x01;
-static const pgcByteT kMarkerTagPair = 0x02;
-static const pgcByteT kMarkerShortMoveSequence = 0x03;
-static const pgcByteT kMarkerLongMoveSequence = 0x04;
-static const pgcByteT kMarkerGameDataBegin = 0x05;
-static const pgcByteT kMarkerGameDataEnd = 0x06;
-static const pgcByteT kMarkerSimpleNAG = 0x07;
-static const pgcByteT kMarkerRAVBegin = 0x08;
-static const pgcByteT kMarkerRAVEnd = 0x09;
-static const pgcByteT kMarkerEscape = 0x0a;
+[[maybe_unused]] static pgcByteT const kMarkerBeginGameReduced  = 0x01;
+static pgcByteT const                  kMarkerTagPair           = 0x02;
+static pgcByteT const                  kMarkerShortMoveSequence = 0x03;
+static pgcByteT const                  kMarkerLongMoveSequence  = 0x04;
+static pgcByteT const                  kMarkerGameDataBegin     = 0x05;
+static pgcByteT const                  kMarkerGameDataEnd       = 0x06;
+static pgcByteT const                  kMarkerSimpleNAG         = 0x07;
+static pgcByteT const                  kMarkerRAVBegin          = 0x08;
+static pgcByteT const                  kMarkerRAVEnd            = 0x09;
+static pgcByteT const                  kMarkerEscape            = 0x0a;
 
-const char *SkipWhite(const char *c) {
-  assert(c);
-  while (isspace(*c) && *c != '\0')
-    ++c;
-  return c;
+char const* SkipWhite(char const* c) {
+    assert(c);
+    while (isspace(*c) && *c != '\0')
+        ++c;
+    return c;
 }
-void SkipWhite(const char **c) {
-  assert(c);
-  *c = SkipWhite(*c);
+void SkipWhite(char const** c) {
+    assert(c);
+    *c = SkipWhite(*c);
 }
 
 // skips over all chars till it finds any chars in target, then moves just past target
 //
 // "xxxx[xxx"
 //       ^
-const char *SkipTo(const char *c, const char target[]) {
-  assert(c);
-  assert(target);
+char const* SkipTo(char const* c, char const target[]) {
+    assert(c);
+    assert(target);
 
-  while (strcspn(c, target) && *c != '\0')
-    ++c;
+    while (strcspn(c, target) && *c != '\0')
+        ++c;
 
-  if (*c != '\0')
-    ++c;
+    if (*c != '\0')
+        ++c;
 
-  return c;
+    return c;
 }
 
-void SkipTo(const char **c, const char target[]) {
-  assert(c);
-  assert(target);
-  *c = SkipTo(*c, target);
+void SkipTo(char const** c, char const target[]) {
+    assert(c);
+    assert(target);
+    *c = SkipTo(*c, target);
 }
 
 // skips over all chars in unwanted
-const char *SkipChar(const char *c, const char unwanted[]) {
-  assert(c);
-  assert(unwanted);
-  while (!strcspn(c, unwanted) && *c != '\0')
-    ++c;
+char const* SkipChar(char const* c, char const unwanted[]) {
+    assert(c);
+    assert(unwanted);
+    while (!strcspn(c, unwanted) && *c != '\0')
+        ++c;
 
-  return c;
+    return c;
 }
 
-void SkipChar(const char **c, char unwanted[]) {
-  assert(c);
-  assert(unwanted);
-  *c = SkipChar(*c, unwanted);
+void SkipChar(char const** c, char unwanted[]) {
+    assert(c);
+    assert(unwanted);
+    *c = SkipChar(*c, unwanted);
 }
 
 struct PGNTag {
-  std::string name, value;
+    std::string name, value;
 };
 
 // adds all of the tags to the list, and returns where the tags ended.
 // tag names are converted to upper case
-const char *ParsePGNTags(const char *pgn, List<PGNTag> *tags) {
-  assert(pgn);
-  assert(tags);
+char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
+    assert(pgn);
+    assert(tags);
 
-  const char kPGNTagBegin[] = "[";
-  const char kPGNTagEnd[] = "]";
-  const char kPGNTagValueBegin[] = "\"";
-  const char kPGNTagValueEnd = '\"';
+    char const kPGNTagBegin[]      = "[";
+    char const kPGNTagEnd[]        = "]";
+    char const kPGNTagValueBegin[] = "\"";
+    char const kPGNTagValueEnd     = '\"';
 
-  bool parsingTags = true;
-  while (parsingTags) {
-    SkipTo(&pgn, kPGNTagBegin);
-    SkipWhite(&pgn);
+    bool parsingTags = true;
+    while (parsingTags) {
+        SkipTo(&pgn, kPGNTagBegin);
+        SkipWhite(&pgn);
 
-    PGNTag tag;
-    while (!isspace(*pgn) && *pgn != kPGNTagValueBegin[0] && *pgn != '\0') {
-      tag.name += toupper(*pgn);
-      ++pgn;
+        PGNTag tag;
+        while (!isspace(*pgn) && *pgn != kPGNTagValueBegin[0] && *pgn != '\0') {
+            tag.name += toupper(*pgn);
+            ++pgn;
+        }
+
+        SkipTo(&pgn, kPGNTagValueBegin);
+        while (*pgn != kPGNTagValueEnd && *pgn != '\0') {
+            tag.value += *pgn;
+            ++pgn;
+        }
+        if (*pgn != '\0')
+            tags->add(tag);
+
+        SkipTo(&pgn, kPGNTagEnd);
+        SkipWhite(&pgn);
+
+        if (*pgn != kPGNTagBegin[0] || *pgn == '\0')
+            parsingTags = false;
     }
 
-    SkipTo(&pgn, kPGNTagValueBegin);
-    while (*pgn != kPGNTagValueEnd && *pgn != '\0') {
-      tag.value += *pgn;
-      ++pgn;
-    }
-    if (*pgn != '\0')
-      tags->add(tag);
-
-    SkipTo(&pgn, kPGNTagEnd);
-    SkipWhite(&pgn);
-
-    if (*pgn != kPGNTagBegin[0] || *pgn == '\0')
-      parsingTags = false;
-  }
-
-  return pgn;
+    return pgn;
 }
 
 // returns the element, or -1 if it didn't find it
-int FindElement(const std::string &target, SANQueue &source) {
-  for (unsigned i = 0; i < source.size(); ++i)
-    if (source[i].san() == target)
-      return i;
+int FindElement(std::string const& target, SANQueue& source) {
+    for (unsigned i = 0; i < source.size(); ++i)
+        if (source[i].san() == target)
+            return i;
 
-  return -1;
+    return -1;
 }
 
 //??! Illegal moves will mess up the .pgc, changing will be non-trivial (e.g.
@@ -188,674 +188,625 @@ int FindElement(const std::string &target, SANQueue &source) {
 //! Standard only specifies 1. e4 e5 (1...d5 (1...Nf6))
 // this performs a lot of clean-up, e.g. move numbers are ignored
 enum E_gameTermination {
-  none, // still need to processing game
-  parsingError,
-  illegalMove,
-  RAVUnderflow,
-  unknown,
-  whiteWin,
-  blackWin,
-  draw
+    none, // still need to processing game
+    parsingError,
+    illegalMove,
+    RAVUnderflow,
+    unknown,
+    whiteWin,
+    blackWin,
+    draw
 }; //?!! use later to determine if original STR Result is correct
-E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
-                                      std::ostream &pgc) {
-  static Board gPreviousGamePos; // used in case their is something other than a
-                                 // move sequence before a RAV
-  static int gRAVLevels; // used to finish putting RAVEnd markers, and to detect
-                         // RAV underflow
+E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostream& pgc) {
+    static Board gPreviousGamePos; // used in case their is something other than a
+                                   // move sequence before a RAV
+    static int gRAVLevels;         // used to finish putting RAVEnd markers, and to detect
+                                   // RAV underflow
 
-  enum E_reasonToEndSequence {
-    RAVBegin,
-    RAVEnd,
-    NAG,
-    escape,
-    other
-  } reasonToBreak = other;
-  E_gameTermination gameResult = none;
+    enum E_reasonToEndSequence { RAVBegin, RAVEnd, NAG, escape, other } reasonToBreak = other;
+    E_gameTermination gameResult                                                      = none;
 
-  List<std::string> moves;
-  bool processMoveSequence = true;
-  pgcByteT NAGVal;
-  std::string escapeToken;
-  while (processMoveSequence) // move sequence
-  {
-    std::string token;
-    SkipWhite(&pgn);
-    if (*pgn == '[') {
-      gameResult = unknown;
-      // processMoveSequence = false; // redundant here
-      break;
-    }
-    // get the next token
-    while (!isspace(*pgn) && *pgn != '\0') {
-      if (token.length() && *pgn == ')')
-        break;
+    List<std::string> moves;
+    bool              processMoveSequence = true;
+    pgcByteT          NAGVal;
+    std::string       escapeToken;
+    while (processMoveSequence) // move sequence
+    {
+        std::string token;
+        SkipWhite(&pgn);
+        if (*pgn == '[') {
+            gameResult = unknown;
+            // processMoveSequence = false; // redundant here
+            break;
+        }
+        // get the next token
+        while (!isspace(*pgn) && *pgn != '\0') {
+            if (token.length() && *pgn == ')')
+                break;
 
-      if ((*pgn == '!') || (*pgn == '?')) // NAG
-      {
-        if (token.length()) {
-          break;
-        } else {
-          while (!isspace(*pgn) && *pgn != '\0' &&
-                 (*pgn == '!' || *pgn == '?')) {
+            if ((*pgn == '!') || (*pgn == '?')) // NAG
+            {
+                if (token.length()) {
+                    break;
+                } else {
+                    while (!isspace(*pgn) && *pgn != '\0' && (*pgn == '!' || *pgn == '?')) {
+                        token += *pgn;
+                        ++pgn;
+                    }
+                    break;
+                }
+            }
             token += *pgn;
+            //                cout << "\ncurToken: " << token;
             ++pgn;
-          }
-          break;
+            assert(token.length());
+            if (token == "(" || token == ")" || token[token.length() - 1] == '.')
+                break;
         }
-      }
-      token += *pgn;
-      //                cout << "\ncurToken: " << token;
-      ++pgn;
-      assert(token.length());
-      if (token == "(" || token == ")" || token[token.length() - 1] == '.')
-        break;
-    }
 
-    if (token.empty()) // no more tokens to process
-    {
-      processMoveSequence = false;
-    } else if (isdigit(token[0])) // move# or end-of-game (1-0 1-0 1/2-1/2)
-    {
-      if (token == "1-0") {
-        gameResult = whiteWin; // there can only be one game termination per
-                               // game, cannot be in a RAV
-        processMoveSequence = false;
-      } else if (token == "0-1") {
-        gameResult = blackWin;
-        processMoveSequence = false;
-      } else if (token == "1/2-1/2" || token == "1/2") {
-        gameResult = draw;
-        processMoveSequence = false;
-      }
-    } else if (token == "*") {
-      gameResult = unknown;
-      processMoveSequence = false;
-    } else if (isalpha(token[0])) // SAN move
-    {
-      moves.add(token);
-    } else if (token == "!") // NAVVal values from pgn standard sec. 10
-    {
-      reasonToBreak = NAG;
-      NAGVal = 1;
-      processMoveSequence = false;
-    } else if (token == "?") {
-      reasonToBreak = NAG;
-      NAGVal = 2;
-      processMoveSequence = false;
-    } else if (token == "!!") {
-      reasonToBreak = NAG;
-      NAGVal = 3;
-      processMoveSequence = false;
-    } else if (token == "??") {
-      reasonToBreak = NAG;
-      NAGVal = 4;
-      processMoveSequence = false;
-    } else if (token == "!?") {
-      reasonToBreak = NAG;
-      NAGVal = 5;
-      processMoveSequence = false;
-    } else if (token == "?!") {
-      reasonToBreak = NAG;
-      NAGVal = 6;
-      processMoveSequence = false;
-    } else if (token[0] == '{') // multi-line comment
-    {
-      // .pgc doesn't allow for comments yet..
-      SkipTo(&pgn, "}");
-    } else if (token[0] == ';') // single-line comment
-    {
-      SkipTo(&pgn, "\n");
-    } else if (token[0] == '(') // RAV
-    {
-      ++gRAVLevels;
-      reasonToBreak = RAVBegin;
-      processMoveSequence = false;
-    } else if (token[0] == ')') // RAV
-    {
-      --gRAVLevels;
-      reasonToBreak = RAVEnd;
-      processMoveSequence = false;
-    } else if (token[0] == '$') // NAG
-    {
-      reasonToBreak = NAG;
-      NAGVal = atoi(&token.c_str()[1]);
-      processMoveSequence = false;
-    } else if (token[0] == '.') // black to move (...)
-    {
-      // redundant
-    } else if (token[0] == '[') // begin another game (without end-of-game
-                                // marker) // taken care of up top
-    {
-      assert(0);
-    } else if (token[0] == '%') // escape sequence
-    {
-      escapeToken =
-          &token.c_str()[1]; //??! An escape sequence can have null, but
-                             // this function uses char*, so it can't
-      while (*pgn != '\n' && *pgn != '\0') {
-        escapeToken += *pgn;
-        pgn++;
-      }
-      reasonToBreak = escape;
-      processMoveSequence = false;
-    } else // error, everything in a valid PGN game should be taken care of
-    {
-      return parsingError;
-    }
-  }
-
-  // Process Moves
-  //!!? Only need to indicate zero moves if the game is empty and not using
-  //! begin and end game data markers (i.e. using kMarkerBeginGameReduced)
-  if (moves.size()) {
-    if (moves.size() <= UCHAR_MAX)
-      pgc << kMarkerShortMoveSequence << (pgcByteT)moves.size();
-    else {
-      char moveSize[2];
-      gToLittleEndian(moves.size(), moveSize);
-      pgc << kMarkerLongMoveSequence << moveSize[0] << moveSize[1];
-    }
-
-    gTimer[4].start();
-    for (size_t i = 0; i < moves.size(); ++i) {
-      SANQueue SANMoves;
-      List<ChessMove> allMoves;
-      gTimer[2].start();
-      game.genLegalMoveSet(allMoves, SANMoves); // 57%
-      gTimer[2].stop();
-
-      /*/ debugBegin
-      //
-                      SANMoves.gotoFirst();
-                      std::string debug;
-                      int debugI = 0;
-                      cout << "\n";
-                      while(SANMoves.next(&debug))
-                              cout << debugI++ << " " << debug << "\t";
-                      SANMoves.gotoFirst();
-      //
-      */// debugEnd
-      gTimer[3].start();
-      ChessMove cm;
-      if (!game.algebraicToMove(cm, moves[i].c_str(), allMoves)) {
-        std::cout << "\nillegal move: " << moves[i].c_str();
-        std::cout << "\n";
-        game.display();
-        return illegalMove; // move is not legal
-      }
-      std::string san;
-
-      game.moveToAlgebraic(san, cm, allMoves);
-      gTimer[3].stop();
-
-      assert(FindElement(san, SANMoves) != -1);
-      /*            if(FindElement(san, SANMoves) == -1)
-                              {
-                                      game.display();
-                                      SANMoves.gotoFirst();
-                                      ChessMoveSAN debug;
-                                      int debugI = 0;
-                      std::cout << "\n";
-                                      while(SANMoves.next(&debug))
-                      std::cout << debugI++ << " " << debug.san() << "\t";
-                                      SANMoves.gotoFirst();
-                              }
-      */
-      //            std::cout << "\nMove: " << san << "\n";
-      //            game.display();
-
-      pgc << (pgcByteT)FindElement(san, SANMoves);
-
-      if (i == (moves.size() - 1)) {
-        if (reasonToBreak == RAVBegin) {
-          pgc << kMarkerRAVBegin;
-          Board temp = game;
-          gameResult = ProcessMoveSequence(temp, pgn, pgc);
-        } else // SEHE FIXME hanging else
+        if (token.empty()) // no more tokens to process
         {
-          gPreviousGamePos =
-              game; // their can't be two rav's at the same level for the same
-                    // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
-                    // (pgn formal syntax)
+            processMoveSequence = false;
+        } else if (isdigit(token[0])) // move# or end-of-game (1-0 1-0 1/2-1/2)
+        {
+            if (token == "1-0") {
+                gameResult = whiteWin; // there can only be one game termination per
+                                       // game, cannot be in a RAV
+                processMoveSequence = false;
+            } else if (token == "0-1") {
+                gameResult          = blackWin;
+                processMoveSequence = false;
+            } else if (token == "1/2-1/2" || token == "1/2") {
+                gameResult          = draw;
+                processMoveSequence = false;
+            }
+        } else if (token == "*") {
+            gameResult          = unknown;
+            processMoveSequence = false;
+        } else if (isalpha(token[0])) // SAN move
+        {
+            moves.add(token);
+        } else if (token == "!") // NAVVal values from pgn standard sec. 10
+        {
+            reasonToBreak       = NAG;
+            NAGVal              = 1;
+            processMoveSequence = false;
+        } else if (token == "?") {
+            reasonToBreak       = NAG;
+            NAGVal              = 2;
+            processMoveSequence = false;
+        } else if (token == "!!") {
+            reasonToBreak       = NAG;
+            NAGVal              = 3;
+            processMoveSequence = false;
+        } else if (token == "??") {
+            reasonToBreak       = NAG;
+            NAGVal              = 4;
+            processMoveSequence = false;
+        } else if (token == "!?") {
+            reasonToBreak       = NAG;
+            NAGVal              = 5;
+            processMoveSequence = false;
+        } else if (token == "?!") {
+            reasonToBreak       = NAG;
+            NAGVal              = 6;
+            processMoveSequence = false;
+        } else if (token[0] == '{') // multi-line comment
+        {
+            // .pgc doesn't allow for comments yet..
+            SkipTo(&pgn, "}");
+        } else if (token[0] == ';') // single-line comment
+        {
+            SkipTo(&pgn, "\n");
+        } else if (token[0] == '(') // RAV
+        {
+            ++gRAVLevels;
+            reasonToBreak       = RAVBegin;
+            processMoveSequence = false;
+        } else if (token[0] == ')') // RAV
+        {
+            --gRAVLevels;
+            reasonToBreak       = RAVEnd;
+            processMoveSequence = false;
+        } else if (token[0] == '$') // NAG
+        {
+            reasonToBreak       = NAG;
+            NAGVal              = atoi(&token.c_str()[1]);
+            processMoveSequence = false;
+        } else if (token[0] == '.') // black to move (...)
+        {
+            // redundant
+        } else if (token[0] == '[') // begin another game (without end-of-game
+                                    // marker) // taken care of up top
+        {
+            assert(0);
+        } else if (token[0] == '%') // escape sequence
+        {
+            escapeToken = &token.c_str()[1]; //??! An escape sequence can have null, but
+                                             // this function uses char*, so it can't
+            while (*pgn != '\n' && *pgn != '\0') {
+                escapeToken += *pgn;
+                pgn++;
+            }
+            reasonToBreak       = escape;
+            processMoveSequence = false;
+        } else // error, everything in a valid PGN game should be taken care of
+        {
+            return parsingError;
         }
-      }
-
-      gTimer[7].start();
-      game.processMove(cm, allMoves);
-      gTimer[7].stop();
-    }
-    gTimer[4].stop();
-
-  } else if (reasonToBreak ==
-             RAVBegin) // e.g. in case their is a NAG in before the RAVBegin
-  {
-    pgc << kMarkerRAVBegin;
-    gameResult = ProcessMoveSequence(gPreviousGamePos, pgn, pgc);
-  }
-
-  switch (reasonToBreak) {
-  case RAVEnd:
-    pgc << kMarkerRAVEnd;
-    break;
-  case NAG:
-    if (moves.size())
-      pgc << kMarkerSimpleNAG << NAGVal;
-    break; // you can only have a NAG if you have a move, and only one NAG per
-           // move (formal pgn syntax)
-  case escape:
-    char escapeLength[2];
-    gToLittleEndian(escapeToken.length(), escapeLength);
-    pgc << kMarkerEscape << escapeLength[0] << escapeLength[1] << escapeToken;
-    break;
-  case RAVBegin:
-    break;
-  default:
-    break;
-  }
-
-  if (gRAVLevels < 0)
-    return RAVUnderflow;
-
-  if (gameResult != none && gRAVLevels)
-    while (gRAVLevels) {
-      pgc << kMarkerRAVEnd;
-      --gRAVLevels;
     }
 
-  return gameResult;
+    // Process Moves
+    //!!? Only need to indicate zero moves if the game is empty and not using
+    //! begin and end game data markers (i.e. using kMarkerBeginGameReduced)
+    if (moves.size()) {
+        if (moves.size() <= UCHAR_MAX)
+            pgc << kMarkerShortMoveSequence << (pgcByteT)moves.size();
+        else {
+            char moveSize[2];
+            gToLittleEndian(moves.size(), moveSize);
+            pgc << kMarkerLongMoveSequence << moveSize[0] << moveSize[1];
+        }
+
+        gTimer[4].start();
+        for (size_t i = 0; i < moves.size(); ++i) {
+            SANQueue        SANMoves;
+            List<ChessMove> allMoves;
+            gTimer[2].start();
+            game.genLegalMoveSet(allMoves, SANMoves); // 57%
+            gTimer[2].stop();
+
+            /*/ debugBegin
+            //
+                            SANMoves.gotoFirst();
+                            std::string debug;
+                            int debugI = 0;
+                            cout << "\n";
+                            while(SANMoves.next(&debug))
+                                    cout << debugI++ << " " << debug << "\t";
+                            SANMoves.gotoFirst();
+            //
+            */// debugEnd
+            gTimer[3].start();
+            ChessMove cm;
+            if (!game.algebraicToMove(cm, moves[i].c_str(), allMoves)) {
+                std::cout << "\nillegal move: " << moves[i].c_str();
+                std::cout << "\n";
+                game.display();
+                return illegalMove; // move is not legal
+            }
+            std::string san;
+
+            game.moveToAlgebraic(san, cm, allMoves);
+            gTimer[3].stop();
+
+            assert(FindElement(san, SANMoves) != -1);
+            /*            if(FindElement(san, SANMoves) == -1)
+                                    {
+                                            game.display();
+                                            SANMoves.gotoFirst();
+                                            ChessMoveSAN debug;
+                                            int debugI = 0;
+                            std::cout << "\n";
+                                            while(SANMoves.next(&debug))
+                            std::cout << debugI++ << " " << debug.san() << "\t";
+                                            SANMoves.gotoFirst();
+                                    }
+            */
+            //            std::cout << "\nMove: " << san << "\n";
+            //            game.display();
+
+            pgc << (pgcByteT)FindElement(san, SANMoves);
+
+            if (i == (moves.size() - 1)) {
+                if (reasonToBreak == RAVBegin) {
+                    pgc << kMarkerRAVBegin;
+                    Board temp = game;
+                    gameResult = ProcessMoveSequence(temp, pgn, pgc);
+                } else // SEHE FIXME hanging else
+                {
+                    gPreviousGamePos = game; // their can't be two rav's at the same level for the same
+                                             // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
+                                             // (pgn formal syntax)
+                }
+            }
+
+            gTimer[7].start();
+            game.processMove(cm, allMoves);
+            gTimer[7].stop();
+        }
+        gTimer[4].stop();
+
+    } else if (reasonToBreak == RAVBegin) // e.g. in case their is a NAG in before the RAVBegin
+    {
+        pgc << kMarkerRAVBegin;
+        gameResult = ProcessMoveSequence(gPreviousGamePos, pgn, pgc);
+    }
+
+    switch (reasonToBreak) {
+        case RAVEnd: pgc << kMarkerRAVEnd; break;
+        case NAG:
+            if (moves.size())
+                pgc << kMarkerSimpleNAG << NAGVal;
+            break; // you can only have a NAG if you have a move, and only one NAG per
+                   // move (formal pgn syntax)
+        case escape:
+            char escapeLength[2];
+            gToLittleEndian(escapeToken.length(), escapeLength);
+            pgc << kMarkerEscape << escapeLength[0] << escapeLength[1] << escapeToken;
+            break;
+        case RAVBegin: break;
+        default: break;
+    }
+
+    if (gRAVLevels < 0)
+        return RAVUnderflow;
+
+    if (gameResult != none && gRAVLevels)
+        while (gRAVLevels) {
+            pgc << kMarkerRAVEnd;
+            --gRAVLevels;
+        }
+
+    return gameResult;
 }
 
 // convert game from .pgn format to .pgc format
 // returns true if game is valid and succeeded, false otherwise
 // sets endOfGame to the place in pgn where the game stopped being processed
-E_gameTermination PgnToPgc(const char *pgn, const char **endOfGame,
-                           std::ostream &pgc) {
-  assert(pgn);
-  assert(endOfGame);
-  List<PGNTag> tags;
-  *endOfGame = pgn;
-  pgn = ParsePGNTags(pgn, &tags);
-
-  Board game;
-
-  if (!tags.size()) {
+E_gameTermination PgnToPgc(char const* pgn, char const** endOfGame, std::ostream& pgc) {
+    assert(pgn);
+    assert(endOfGame);
+    List<PGNTag> tags;
     *endOfGame = pgn;
-    return parsingError;
-  }
+    pgn        = ParsePGNTags(pgn, &tags);
 
-  pgc << kMarkerGameDataBegin;
-  // output the tags in the right order
-  const char *sevenTagRoster[] = {
-      "EVENT", "SITE", "DATE", "ROUND", "WHITE", "BLACK", "RESULT",
-  };
-  int i, j;
-  for (i = 0; i < int(sizeof(sevenTagRoster) / sizeof(sevenTagRoster[0]));
-       ++i) {
-    bool foundTag = false;
-    for (j = 0; j < int(tags.size()) && !foundTag; ++j) {
-      if (tags[j].name == sevenTagRoster[i]) {
-        assert(tags[j].value.length() <=
-               UCHAR_MAX); //??! Need to deal with this
-        pgc << (pgcByteT)tags[j].value.length() << tags[j].value;
-        tags.remove(j);
-        foundTag = true;
-      }
+    Board game;
+
+    if (!tags.size()) {
+        *endOfGame = pgn;
+        return parsingError;
     }
-    if (!foundTag) {
-      switch (i) {
-      case 0:
-      case 1:
-      case 3:
-      case 4:
-      case 5:
-        pgc << (pgcByteT)1 << '?';
-        break;
-      case 2:
-        pgc << (pgcByteT)strlen("????.??.??") << "????.??.??";
-        break;
-      case 6:
-        pgc << (pgcByteT)1 << '*';
-        break;
-      default:
-        assert(0); // not Reached
-      }
+
+    pgc << kMarkerGameDataBegin;
+    // output the tags in the right order
+    char const* sevenTagRoster[] = {
+        "EVENT", "SITE", "DATE", "ROUND", "WHITE", "BLACK", "RESULT",
+    };
+    int i, j;
+    for (i = 0; i < int(sizeof(sevenTagRoster) / sizeof(sevenTagRoster[0])); ++i) {
+        bool foundTag = false;
+        for (j = 0; j < int(tags.size()) && !foundTag; ++j) {
+            if (tags[j].name == sevenTagRoster[i]) {
+                assert(tags[j].value.length() <= UCHAR_MAX); //??! Need to deal with this
+                pgc << (pgcByteT)tags[j].value.length() << tags[j].value;
+                tags.remove(j);
+                foundTag = true;
+            }
+        }
+        if (!foundTag) {
+            switch (i) {
+                case 0:
+                case 1:
+                case 3:
+                case 4:
+                case 5: pgc << (pgcByteT)1 << '?'; break;
+                case 2: pgc << (pgcByteT)strlen("????.??.??") << "????.??.??"; break;
+                case 6: pgc << (pgcByteT)1 << '*'; break;
+                default: assert(0); // not Reached
+            }
+        }
     }
-  }
-  // any remaining tags
-  //??! Case information is lost when parsing tags
-  for (i = 0; i < int(tags.size()); ++i) {
-    assert(tags[i].name.length() < UCHAR_MAX); //??! Need to deal with this
-    pgc << kMarkerTagPair << (pgcByteT)tags[i].name.length() << tags[i].name
-        << (pgcByteT)tags[i].value.length() << tags[i].value;
+    // any remaining tags
+    //??! Case information is lost when parsing tags
+    for (i = 0; i < int(tags.size()); ++i) {
+        assert(tags[i].name.length() < UCHAR_MAX); //??! Need to deal with this
+        pgc << kMarkerTagPair << (pgcByteT)tags[i].name.length() << tags[i].name
+            << (pgcByteT)tags[i].value.length() << tags[i].value;
 
-    if (tags[i].name == "FEN") // process FEN
-      game.processFEN(tags[i].value.c_str());
-  }
+        if (tags[i].name == "FEN") // process FEN
+            game.processFEN(tags[i].value.c_str());
+    }
 
-  E_gameTermination processGame = none;
-  Board previousBoard = game;                 // used for RAV
-                                              //    gTimer[3].start();
-  while (processGame == none && *pgn != '\0') // whole game
-  {
-    processGame = ProcessMoveSequence(game, pgn, pgc);
-  }
-  // gTimer[3].stop();
-  pgc << kMarkerGameDataEnd;
+    E_gameTermination processGame   = none;
+    Board             previousBoard = game;     // used for RAV
+                                                //    gTimer[3].start();
+    while (processGame == none && *pgn != '\0') // whole game
+    {
+        processGame = ProcessMoveSequence(game, pgn, pgc);
+    }
+    // gTimer[3].stop();
+    pgc << kMarkerGameDataEnd;
 
-  *endOfGame = pgn;
-  return processGame;
+    *endOfGame = pgn;
+    return processGame;
 }
 
 // returns the number of games processed successfully
-int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
-  const size_t kLargestGame =
-      0x4000; // too large will impede performance due to memmove
-  char *const gameBuffer = new char[kLargestGame + 1];
-  AdoptArray<char> gameAdopter(gameBuffer);
-  char *gameBufferCurrent = gameBuffer;
+int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
+    size_t const     kLargestGame = 0x4000; // too large will impede performance due to memmove
+    char* const      gameBuffer   = new char[kLargestGame + 1];
+    AdoptArray<char> gameAdopter(gameBuffer);
+    char*            gameBufferCurrent = gameBuffer;
 
-  unsigned gamesProcessed = 0;
+    unsigned gamesProcessed = 0;
 
-  std::cout << "\n"; // USER UPDATE
+    std::cout << "\n"; // USER UPDATE
 
-  auto oldPGNFlags = pgn.flags();
-  pgn >> std::noskipws;
-  unsigned totalGames = 0;
-  while (!pgn.bad() && pgc.good()) {
-    std::cout << '.' << std::flush; // USER UPDATE
+    auto oldPGNFlags = pgn.flags();
+    pgn >> std::noskipws;
+    unsigned totalGames = 0;
+    while (!pgn.bad() && pgc.good()) {
+        std::cout << '.' << std::flush; // USER UPDATE
 
-    std::ostringstream pgcGame(std::ios::binary);
+        std::ostringstream pgcGame(std::ios::binary);
 
-    if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
-                    //! badbit (illegal operation), but need to clear failbit
-                    //! because it fails when pgn reaches eof()
-      pgn.clear();
+        if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
+                        //! badbit (illegal operation), but need to clear failbit
+                        //! because it fails when pgn reaches eof()
+            pgn.clear();
 
-    pgn.read(gameBufferCurrent,
-             kLargestGame - (gameBufferCurrent - gameBuffer));
-    std::streamsize received = pgn.gcount();
+        pgn.read(gameBufferCurrent, kLargestGame - (gameBufferCurrent - gameBuffer));
+        std::streamsize received = pgn.gcount();
 
-    gameBufferCurrent[received] = '\0';
+        gameBufferCurrent[received] = '\0';
 
-    const char *endOfGame = 0;
-    //      gTimer[2].start();
-    ++totalGames;
-    E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
-    //      gTimer[2].stop();
+        char const* endOfGame = 0;
+        //      gTimer[2].start();
+        ++totalGames;
+        E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
+        //      gTimer[2].stop();
 
-    switch (result) {
-    case illegalMove:
-      std::cout << "\n Illegal move.";
-      break;
-    case RAVUnderflow:
-      std::cout << "\n RAV underflow.";
-      break;
-    case parsingError:
-      std::cout << "\n Parsing error (may be end-of-file).";
-      break; // return gamesProcessed; //??! needs fixing .eof()
-    default:
-      pgc << pgcGame.str();
-      ++gamesProcessed;
-      break;
+        switch (result) {
+            case illegalMove: std::cout << "\n Illegal move."; break;
+            case RAVUnderflow: std::cout << "\n RAV underflow."; break;
+            case parsingError:
+                std::cout << "\n Parsing error (may be end-of-file).";
+                break; // return gamesProcessed; //??! needs fixing .eof()
+            default:
+                pgc << pgcGame.str();
+                ++gamesProcessed;
+                break;
+        }
+        assert(endOfGame && endOfGame >= gameBuffer);
+        memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
+        gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
+
+        if (!pgcGame || (!pgn.good() && gameBuffer[0] == '\0')) {
+            break;
+        }
     }
-    assert(endOfGame && endOfGame >= gameBuffer);
-    memmove(gameBuffer, endOfGame, kLargestGame - (endOfGame - gameBuffer));
-    gameBufferCurrent = gameBuffer + kLargestGame - (endOfGame - gameBuffer);
+    assert(!pgn.bad());
+    assert(pgc.good());
 
-    if (!pgcGame || (!pgn.good() && gameBuffer[0] == '\0')) {
-      break;
-    }
-  }
-  assert(!pgn.bad());
-  assert(pgc.good());
-
-  pgn.flags(oldPGNFlags);
-  return gamesProcessed;
+    pgn.flags(oldPGNFlags);
+    return gamesProcessed;
 }
 
 // Test Test Test Test Test Test Test Test Test Test Test Test Test Test Test
 #define TEST
 #ifdef TEST
-#undef TEST
+    #undef TEST
 
-#include <cassert>
-#include <cctype>
-#include <cstddef>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <fstream>
-#include <iostream>
+    #include <cassert>
+    #include <cctype>
+    #include <cstddef>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <cstring>
+    #include <fstream>
+    #include <iostream>
 
 // non-standard (may not be portable to some operating systems)
 
 // the different kinds of file operations that can cause an error
 enum FileOperationErrorT {
-  E_openForInput,
-  E_openForOutput,
-  E_output,
-  E_input,
-  E_nameReserved,
-  E_sameFile,
+    E_openForInput,
+    E_openForOutput,
+    E_output,
+    E_input,
+    E_nameReserved,
+    E_sameFile,
 };
 
 // report a file error to the standard error stream
-void ReportFileError(FileOperationErrorT operation, fs::path const &name);
+void ReportFileError(FileOperationErrorT operation, fs::path const& name);
 // returns if the file name is reserved (e.g. "PRN" is reserved for the printer)
-bool IsFileNameReserved(fs::path const &fileName);
+bool IsFileNameReserved(fs::path const& fileName);
 
-int main(int argc, char *argv[]) {
-  // INITIALIZE
-  gTimer[0].start();
+int main(int argc, char* argv[]) {
+    // INITIALIZE
+    gTimer[0].start();
 
-  fs::path inputFileName, outputFileName;
+    fs::path inputFileName, outputFileName;
 
-  // If either inputFileName or outputFile name called "PRN", "LPT1", or
-  // "LPT2" the program will give unexpected results.  These are reserved names
-  // for the printer.
+    // If either inputFileName or outputFile name called "PRN", "LPT1", or
+    // "LPT2" the program will give unexpected results.  These are reserved names
+    // for the printer.
 
-  // argc, number of elements in argv[]
-  // argv[0], undefined (not used)
-  // argv[1], input filename (optional)
-  // argv[2], ouput filename (optional)
-  assert(argc);
+    // argc, number of elements in argv[]
+    // argv[0], undefined (not used)
+    // argv[1], input filename (optional)
+    // argv[2], ouput filename (optional)
+    assert(argc);
 
-  if (argc > 3) {
-    std::cout << "\nUsage: pgn2pgc [source_file [report_file]]\n";
-    return EXIT_FAILURE;
-  }
-
-  // get the name of the input file
-  if (argc >= 2) {
-    inputFileName = argv[1];
-  } else {
-    // prompt user for file name
-    std::cout << "\nWhat is the name of the PGN file to "
-                 "be converted? ";
-    if (std::string temp; getline(std::cin, temp))
-      inputFileName = temp;
-  }
-
-  // If either inputFileName or outputFile name are called "PRN", "LPT1", or
-  // "LPT2" the program will give unexpected results.  These are reserved names
-  // for the printer.
-
-  if (IsFileNameReserved(inputFileName)) {
-    ReportFileError(E_nameReserved, inputFileName);
-
-    return EXIT_FAILURE;
-  }
-
-  // open the input stream
-  std::ifstream inputStream(inputFileName, std::ios::binary);
-
-  // was the file opened successfully?
-  if (!inputStream) {
-    ReportFileError(E_openForInput, inputFileName);
-    return EXIT_FAILURE;
-  }
-
-  if (argc >= 3) {
-    outputFileName = argv[2];
-  }
-
-  // get the file name for output from user if the file already exists ask the
-  // user for confirmation that they want to overwrite it.  If they do not, ask
-  // for a new file name.
-  bool confirmFile = true;
-
-  do // use a do instead of a while to keep the loop entry condition logical
-  {
-    // get the name of the ouput file
-    if (argc < 3 || !confirmFile) {
-      // prompt user for file name
-      std::cout << "\nWhat is the name of the PGC file to be created? ";
-      if (std::string temp; getline(std::cin, temp))
-        outputFileName = temp;
+    if (argc > 3) {
+        std::cout << "\nUsage: pgn2pgc [source_file [report_file]]\n";
+        return EXIT_FAILURE;
     }
 
-    if (exists(outputFileName)) {
-      // ask the user if they're sure they want to overwrite the file
-      std::cout << "\nFile " << outputFileName
-                << " already exists, do you want to overwrite it? (y/n) ";
-
-      char response; // we only want to use the first character
-
-      // only read in the first character and then ignore the rest until EOL
-      std::cin >> response;
-      std::cin.ignore(INT_MAX, '\n');
-
-      confirmFile = (tolower(response) == 'y');
-    }
-  } while (!confirmFile);
-
-  if (IsFileNameReserved(outputFileName)) {
-    ReportFileError(E_nameReserved, outputFileName);
-
-    return EXIT_FAILURE;
-  }
-
-  // if the input file is the same as the output file, use a temporary file
-  // and then delete the old file and rename the temporary file.
-  bool inputOutputSameFile =
-      inputFileName.lexically_normal() == outputFileName.lexically_normal();
-  if (inputOutputSameFile)
-    outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
-
-  // open the ouput stream
-  std::ofstream outputStream(outputFileName,
-                             std::ios::trunc | std::ios::binary);
-
-  // was the file opened successfully?
-  if (!outputStream) {
-    ReportFileError(E_openForOutput, outputFileName);
-    return EXIT_FAILURE;
-  }
-
-  // Let user know that what we are about to do
-  std::cout << "\nConverting the PGN file " << inputFileName
-            << "\n to PGC format and sending the output to file "
-            << outputFileName << "";
-
-  //    gTimer[1].start();
-  unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
-  //    gTimer[1].stop();
-
-  std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " "
-            << gameProcessed << " game" << (gameProcessed == 1 ? "" : "s")
-            << " processed.";
-
-  if (!outputStream.good()) {
-    ReportFileError(E_output, outputFileName);
-    return EXIT_FAILURE;
-  }
-
-  if (inputOutputSameFile) {
-    inputStream.close();
-    outputStream.close();
-
-    // delete old file
-    std::error_code ec;
-    remove(inputFileName, ec);
-    if (ec) {
-      // print the appropriate message
-      std::cerr << "Unable to delete old input file " + ec.message()
-                << std::endl;
-      return EXIT_FAILURE;
+    // get the name of the input file
+    if (argc >= 2) {
+        inputFileName = argv[1];
+    } else {
+        // prompt user for file name
+        std::cout << "\nWhat is the name of the PGN file to "
+                     "be converted? ";
+        if (std::string temp; getline(std::cin, temp))
+            inputFileName = temp;
     }
 
-    // rename temp file to old file
-    fs::rename(outputFileName, inputFileName, ec);
+    // If either inputFileName or outputFile name are called "PRN", "LPT1", or
+    // "LPT2" the program will give unexpected results.  These are reserved names
+    // for the printer.
 
-    if (ec) // non-zero on failure
+    if (IsFileNameReserved(inputFileName)) {
+        ReportFileError(E_nameReserved, inputFileName);
+
+        return EXIT_FAILURE;
+    }
+
+    // open the input stream
+    std::ifstream inputStream(inputFileName, std::ios::binary);
+
+    // was the file opened successfully?
+    if (!inputStream) {
+        ReportFileError(E_openForInput, inputFileName);
+        return EXIT_FAILURE;
+    }
+
+    if (argc >= 3) {
+        outputFileName = argv[2];
+    }
+
+    // get the file name for output from user if the file already exists ask the
+    // user for confirmation that they want to overwrite it.  If they do not, ask
+    // for a new file name.
+    bool confirmFile = true;
+
+    do // use a do instead of a while to keep the loop entry condition logical
     {
-      // print the appropriate message
-      std::cerr << "Unable to rename the temporary file " + ec.message()
-                << std::endl;
-      return EXIT_FAILURE;
+        // get the name of the ouput file
+        if (argc < 3 || !confirmFile) {
+            // prompt user for file name
+            std::cout << "\nWhat is the name of the PGC file to be created? ";
+            if (std::string temp; getline(std::cin, temp))
+                outputFileName = temp;
+        }
+
+        if (exists(outputFileName)) {
+            // ask the user if they're sure they want to overwrite the file
+            std::cout << "\nFile " << outputFileName
+                      << " already exists, do you want to overwrite it? (y/n) ";
+
+            char response; // we only want to use the first character
+
+            // only read in the first character and then ignore the rest until EOL
+            std::cin >> response;
+            std::cin.ignore(INT_MAX, '\n');
+
+            confirmFile = (tolower(response) == 'y');
+        }
+    } while (!confirmFile);
+
+    if (IsFileNameReserved(outputFileName)) {
+        ReportFileError(E_nameReserved, outputFileName);
+
+        return EXIT_FAILURE;
     }
-  }
 
-  // If we get to here than their were no file errors
-  std::cout << "\n\nOperation was successful." << std::endl;
+    // if the input file is the same as the output file, use a temporary file
+    // and then delete the old file and rename the temporary file.
+    bool inputOutputSameFile = inputFileName.lexically_normal() == outputFileName.lexically_normal();
+    if (inputOutputSameFile)
+        outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
 
-  gTimer[0].stop();
+    // open the ouput stream
+    std::ofstream outputStream(outputFileName, std::ios::trunc | std::ios::binary);
 
-  // SEHE TODO
-  // for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI)
-  // { gTimer[debugI].time();
-  //}
+    // was the file opened successfully?
+    if (!outputStream) {
+        ReportFileError(E_openForOutput, outputFileName);
+        return EXIT_FAILURE;
+    }
 
-  return EXIT_SUCCESS;
+    // Let user know that what we are about to do
+    std::cout << "\nConverting the PGN file " << inputFileName
+              << "\n to PGC format and sending the output to file " << outputFileName << "";
+
+    //    gTimer[1].start();
+    unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
+    //    gTimer[1].stop();
+
+    std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " " << gameProcessed << " game"
+              << (gameProcessed == 1 ? "" : "s") << " processed.";
+
+    if (!outputStream.good()) {
+        ReportFileError(E_output, outputFileName);
+        return EXIT_FAILURE;
+    }
+
+    if (inputOutputSameFile) {
+        inputStream.close();
+        outputStream.close();
+
+        // delete old file
+        std::error_code ec;
+        remove(inputFileName, ec);
+        if (ec) {
+            // print the appropriate message
+            std::cerr << "Unable to delete old input file " + ec.message() << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        // rename temp file to old file
+        fs::rename(outputFileName, inputFileName, ec);
+
+        if (ec) // non-zero on failure
+        {
+            // print the appropriate message
+            std::cerr << "Unable to rename the temporary file " + ec.message() << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+
+    // If we get to here than their were no file errors
+    std::cout << "\n\nOperation was successful." << std::endl;
+
+    gTimer[0].stop();
+
+    // SEHE TODO
+    // for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI)
+    // { gTimer[debugI].time();
+    //}
+
+    return EXIT_SUCCESS;
 }
 
 /// reports a file error to the standard error stream
 /// @param operation the type of file operation that failed
 /// @param name the name of the file
 /// @return void
-void ReportFileError(FileOperationErrorT operation, fs::path const &name) {
-  std::cerr << std::endl;
+void ReportFileError(FileOperationErrorT operation, fs::path const& name) {
+    std::cerr << std::endl;
 
-  switch (operation) {
-  case E_openForInput:
-    std::cerr << "Error: Unable to open file " << name << " for input";
-    break;
-  case E_openForOutput:
-    std::cerr << "Error: Unable to open file " << name << " for output";
-    break;
-  case E_output:
-    std::cerr << "Error trying to output to file " << name;
-    break;
-  case E_input:
-    std::cerr << "Error trying to input from file " << name;
-    break;
-  case E_nameReserved:
-    std::cerr << "Error: file name " << name
-              << " is system reserved. Please use another.";
-    break;
-  case E_sameFile:
-    std::cerr << "Cannot use file " << name << " for both input and output.";
-    break;
+    switch (operation) {
+        case E_openForInput: std::cerr << "Error: Unable to open file " << name << " for input"; break;
+        case E_openForOutput: std::cerr << "Error: Unable to open file " << name << " for output"; break;
+        case E_output: std::cerr << "Error trying to output to file " << name; break;
+        case E_input: std::cerr << "Error trying to input from file " << name; break;
+        case E_nameReserved:
+            std::cerr << "Error: file name " << name << " is system reserved. Please use another.";
+            break;
+        case E_sameFile: std::cerr << "Cannot use file " << name << " for both input and output."; break;
 
-  default:
-    assert(0); // Not reached
-  }
+        default: assert(0); // Not reached
+    }
 
-  std::cerr << std::endl;
+    std::cerr << std::endl;
 }
 
 /// checks if the file name is reserved by the system
 /// @param fileName the name of the file to check
 /// @return true if the file name is reserved, false otherwise
-bool IsFileNameReserved(fs::path const &fileName) {
-  std::string const name = fileName.filename();
+bool IsFileNameReserved(fs::path const& fileName) {
+    std::string const name = fileName.filename();
 
-  for (auto reservedName : {"PRN", "LPT1", "LPT2"})
-    if (::strcasecmp(reservedName, name.c_str()) == 0)
-      return true;
+    for (auto reservedName : {"PRN", "LPT1", "LPT2"})
+        if (::strcasecmp(reservedName, name.c_str()) == 0)
+            return true;
 
-  return false;
+    return false;
 }
 
 #endif

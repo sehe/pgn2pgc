@@ -23,26 +23,26 @@
 #include <utility> // std::exchange
 
 class StopWatch {
-public:
-  using Clock = std::chrono::high_resolution_clock;
-  using Duration = Clock::duration;
+  public:
+    using Clock    = std::chrono::high_resolution_clock;
+    using Duration = Clock::duration;
 
-  void start() {
-    if (std::exchange(fIsTiming, true))
-      fStart = Clock::now();
-  }
+    void start() {
+        if (std::exchange(fIsTiming, true))
+            fStart = Clock::now();
+    }
 
-  void stop() {
-    if (std::exchange(fIsTiming, false))
-      fCumTime += Clock::now() - fStart;
-  }
+    void stop() {
+        if (std::exchange(fIsTiming, false))
+            fCumTime += Clock::now() - fStart;
+    }
 
-  void reset() { fCumTime = {}; }
+    void reset() { fCumTime = {}; }
 
-  Duration time() { return fCumTime; }
+    Duration time() { return fCumTime; }
 
-private:
-  bool fIsTiming = false;   // are we between start and stop?
-  Clock::time_point fStart; // time when we hit the start button
-  Duration fCumTime;      // the cummulative time
+  private:
+    bool              fIsTiming = false; // are we between start and stop?
+    Clock::time_point fStart;            // time when we hit the start button
+    Duration          fCumTime;          // the cummulative time
 };
