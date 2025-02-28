@@ -436,7 +436,10 @@ bool Board::processMove(const ChessMove &m, List<ChessMove> &allMoves) {
     fCastle = castle;
 
     // SEHE FIXME comparisons?
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wenum-compare"
     if (fStatus == noStatus || fStatus == check) // otherwise end of game
+#pragma GCC diagnostic pop
     {
       switchMove();
       if (fToMove == white) {
@@ -519,7 +522,10 @@ void Board::genLegalMoves(List<ChessMove> *allMoves, SANQueue *allSAN) {
 
   // castling moves
   // FIXME SEHE enum comparison
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wenum-compare"
   if (fStatus == noStatus) {
+#pragma GCC diagnostic pop
     if (isWhiteToMove() &&
         ((getCastle() & whiteKS) || (getCastle() & whiteQS))) {
       // search for king on first rank
