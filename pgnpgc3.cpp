@@ -17,39 +17,31 @@ using pgcByteT       = int8_t;  // one byte (two's complement)
 using pgcWordT       = int16_t; // two bytes (two's complement)
 using pgcDoubleWordT = int32_t; // four bytes (two's complement)
 
-// must be converted to little-endian
-// Endian conversion code idea taken from "Obfuscated C and Other Mysteries" by
-// Don Libes, 1993 pp. 121-3
-//??! This code still needs to be tested on big or big-little endian machines
-class ToLittleEndian {
-  private:
-    void (*fSwapFunc)(pgcWordT, char[]);
-    static void byteSwap(pgcWordT w, char swaped[]) {
-        assert(swaped);
-        char* source = (char*)&w;
-        swaped[0]    = source[1];
-        swaped[1]    = source[0];
+// from https://stackoverflow.com/a/8197886/85371
+#include <bit>
+template <std::integral T> constexpr bool is_little_endian() {
+    for (unsigned bit = 0; bit != sizeof(T) * CHAR_BIT; ++bit) {
+        unsigned char data[sizeof(T)] = {};
+        // In little-endian, bit i of the raw bytes ...
+        data[bit / CHAR_BIT] = 1 << (bit % CHAR_BIT);
+        // ... Corresponds to bit i of the value.
+        if (std::bit_cast<T>(data) != T(1) << bit)
+            return false;
     }
-    static void noSwap(pgcWordT w, char c[]) {
-        assert(c);
-        char* source = (char*)&w;
-        c[0]         = source[0];
-        c[1]         = source[1];
-    }
+    return true;
+}
 
-  public:
-    ToLittleEndian() { // what endian is the machine we're using?
-        pgcWordT const testValue = 0x0100;
-        char*          cp        = (char*)&testValue;
-        if (*cp == 0x01)
-            fSwapFunc = &ToLittleEndian::byteSwap;
-        else
-            fSwapFunc = &ToLittleEndian::noSwap;
-    }
-    void operator()(pgcWordT w, char c[]) { fSwapFunc(w, c); }
-};
+static inline void gToLittleEndian(pgcWordT w, char c[]) {
+    assert(c);
 
-ToLittleEndian gToLittleEndian;
+    if constexpr (char* source = (char*)&w; is_little_endian<pgcWordT>()) {
+        c[0] = source[0];
+        c[1] = source[1];
+    } else {
+        c[0] = source[1];
+        c[1] = source[0];
+    }
+}
 
 //!!? Possible expansion (not covered in PGN standard document):
 //  support for comments
@@ -76,54 +68,25 @@ static pgcByteT const kMarkerRAVBegin          = 0x08;
 static pgcByteT const kMarkerRAVEnd            = 0x09;
 static pgcByteT const kMarkerEscape            = 0x0a;
 
-char const* SkipWhite(char const* c) {
+void SkipWhite(char const*& c) {
     assert(c);
     while (isspace(*c) && *c != '\0')
         ++c;
-    return c;
-}
-void SkipWhite(char const** c) {
-    assert(c);
-    *c = SkipWhite(*c);
 }
 
 // skips over all chars till it finds any chars in target, then moves just past target
 //
 // "xxxx[xxx"
 //       ^
-char const* SkipTo(char const* c, char const target[]) {
+void SkipTo(char const*& c, char const target[]) {
     assert(c);
     assert(target);
 
-    while (strcspn(c, target) && *c != '\0')
-        ++c;
+    while (auto n = strcspn(c, target))
+        c += n;
 
     if (*c != '\0')
         ++c;
-
-    return c;
-}
-
-void SkipTo(char const** c, char const target[]) {
-    assert(c);
-    assert(target);
-    *c = SkipTo(*c, target);
-}
-
-// skips over all chars in unwanted
-char const* SkipChar(char const* c, char const unwanted[]) {
-    assert(c);
-    assert(unwanted);
-    while (!strcspn(c, unwanted) && *c != '\0')
-        ++c;
-
-    return c;
-}
-
-void SkipChar(char const** c, char unwanted[]) {
-    assert(c);
-    assert(unwanted);
-    *c = SkipChar(*c, unwanted);
 }
 
 struct PGNTag {
@@ -143,8 +106,8 @@ char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
 
     bool parsingTags = true;
     while (parsingTags) {
-        SkipTo(&pgn, kPGNTagBegin);
-        SkipWhite(&pgn);
+        SkipTo(pgn, kPGNTagBegin);
+        SkipWhite(pgn);
 
         PGNTag tag;
         while (!isspace(*pgn) && *pgn != kPGNTagValueBegin[0] && *pgn != '\0') {
@@ -152,7 +115,7 @@ char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
             ++pgn;
         }
 
-        SkipTo(&pgn, kPGNTagValueBegin);
+        SkipTo(pgn, kPGNTagValueBegin);
         while (*pgn != kPGNTagValueEnd && *pgn != '\0') {
             tag.value += *pgn;
             ++pgn;
@@ -160,8 +123,8 @@ char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
         if (*pgn != '\0')
             tags->add(tag);
 
-        SkipTo(&pgn, kPGNTagEnd);
-        SkipWhite(&pgn);
+        SkipTo(pgn, kPGNTagEnd);
+        SkipWhite(pgn);
 
         if (*pgn != kPGNTagBegin[0] || *pgn == '\0')
             parsingTags = false;
@@ -214,7 +177,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     while (processMoveSequence) // move sequence
     {
         std::string token;
-        SkipWhite(&pgn);
+        SkipWhite(pgn);
         if (*pgn == '[') {
             gameResult = unknown;
             // processMoveSequence = false; // redundant here
@@ -295,10 +258,10 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
         } else if (token[0] == '{') // multi-line comment
         {
             // .pgc doesn't allow for comments yet..
-            SkipTo(&pgn, "}");
+            SkipTo(pgn, "}");
         } else if (token[0] == ';') // single-line comment
         {
-            SkipTo(&pgn, "\n");
+            SkipTo(pgn, "\n");
         } else if (token[0] == '(') // RAV
         {
             ++gRAVLevels;
@@ -456,17 +419,16 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
 // convert game from .pgn format to .pgc format
 // returns true if game is valid and succeeded, false otherwise
 // sets endOfGame to the place in pgn where the game stopped being processed
-E_gameTermination PgnToPgc(char const* pgn, char const** endOfGame, std::ostream& pgc) {
+E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream& pgc) {
     assert(pgn);
-    assert(endOfGame);
     List<PGNTag> tags;
-    *endOfGame = pgn;
-    pgn        = ParsePGNTags(pgn, &tags);
+    endOfGame = pgn;
+    pgn       = ParsePGNTags(pgn, &tags);
 
     Board game;
 
     if (!tags.size()) {
-        *endOfGame = pgn;
+        endOfGame = pgn;
         return parsingError;
     }
 
@@ -521,7 +483,7 @@ E_gameTermination PgnToPgc(char const* pgn, char const** endOfGame, std::ostream
     // gTimer[3].stop();
     pgc << kMarkerGameDataEnd;
 
-    *endOfGame = pgn;
+    endOfGame = pgn;
     return processGame;
 }
 
@@ -557,7 +519,7 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
         char const* endOfGame = 0;
         //      gTimer[2].start();
         ++totalGames;
-        E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
+        E_gameTermination result = PgnToPgc(gameBuffer, endOfGame, pgcGame);
         //      gTimer[2].stop();
 
         switch (result) {
