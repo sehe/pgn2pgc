@@ -2,11 +2,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////////////////
+#include <array>
 #include <string>
 
 #include "list5.h"
 #include "pqueue_2.h"
-//!!? rank and file mean row (y) and column (x) in chess
+//!!? Rank and file mean row (y) and column (x) in chess
 
 // 0 = a, 1 = b...
 char ChessFileToChar(unsigned file);
@@ -87,10 +88,7 @@ struct ChessMove {
     ChessMove(int y1, int x1, int y2, int x2, enum E_type kind = normal)
         : fRF(y1), fFF(x1), fRT(y2), fFT(x2), fType(kind) {}
 
-    bool operator==(ChessMove const& rhs) const {
-        return rhs.fRF == fRF && rhs.fFF == fFF && rhs.fRT == fRT && rhs.fFT == fFT && rhs.fType == fType;
-    }
-    bool operator!=(ChessMove const& rhs) const { return !this->operator==(rhs); }
+    auto operator<=>(ChessMove const& rhs) const = default;
     bool isPromo() const {
         return fType == promoKnight || fType == promoBishop || fType == promoRook || fType == promoQueen ||
             fType == promoKing;
@@ -104,28 +102,24 @@ struct ChessMove {
     E_type&       type() { return fType; }
 
   private:
-    int fRF, fFF, fRT, fFT; // row from, file from, row to, file to //!?? keep
-                            // signed int so that can use in expressions that
-                            // depend on signed values
+    // row from, file from, row to, file to //!?? Keep signed int so that can
+    // use in expressions that depend on signed values
+    int    fRF, fFF, fRT, fFT;
     E_type fType;
 };
 
 class ChessMoveSAN {
   public:
-    ChessMoveSAN() = default; // FIXME?
-    ChessMoveSAN(int y1, int x1, int y2, int x2, std::string SAN,
-                 ChessMove::E_type kind = ChessMove::E_type::normal)
-        : move_{y1, x1, y2, x2, kind}, fSAN(std::move(SAN)) {}
+    ChessMoveSAN(ChessMove mv = {}, std::string SAN = {}) : move_(std::move(mv)), SAN_(std::move(SAN)) {}
     ChessMove const& move() const { return move_; }
-    std::string&     san() { return fSAN; }
-    bool             operator<(ChessMoveSAN const& b) const { return fSAN < b.fSAN; }
-    // bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
-    bool operator==(ChessMoveSAN const& b) const { return fSAN == b.fSAN; }
-    // bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
+    std::string&     SAN() { return SAN_; }
+
+    bool operator<(ChessMoveSAN const& b) const { return SAN_ < b.SAN_; }
+    bool operator==(ChessMoveSAN const& b) const { return SAN_ == b.SAN_; }
 
   private:
     ChessMove   move_{};
-    std::string fSAN{};
+    std::string SAN_{};
 };
 
 // 'R' == rook 'K' == king..
@@ -142,10 +136,7 @@ using SANQueue = PriorityQueue<ChessMoveSAN>;
 //-----------------------------------------------------------------------------
 class Board {
   public:
-    Board(); //!!? removed ability to determine board size
-
-    Board(Board const&);
-    Board& operator=(Board const&);
+    Board();
 
     bool processFEN(std::string const& FENPosition); // true if valid position, false otherwise
 
@@ -158,38 +149,37 @@ class Board {
     }; // all means don't care, all captures are possible, 1 - fFile for the file
        // where it is possible
 
-    E_toMove toMove() const { return fToMove; }
+    E_toMove toMove() const { return toMove_; }
 
     // returns false if move is not legal
     void switchMove() {
-        if (fToMove == black)
-            fToMove = white;
-        else if (fToMove == white)
-            fToMove = black;
+        if (toMove_ == black)
+            toMove_ = white;
+        else if (toMove_ == white)
+            toMove_ = black;
     } // private
     bool move(ChessMove const&);          // private, need to remove calls to external functions
     bool processMove(ChessMove const& m); // make move and change status of game,
                                           // colorToMove etc
     bool processMove(ChessMove const& m, List<ChessMove>&);
-    bool isWhiteToMove() const { return fToMove == white; }
-    bool isBlackToMove() const { return fToMove == black; }
+    bool isWhiteToMove() const { return toMove_ == white; }
+    bool isBlackToMove() const { return toMove_ == black; }
 
-    unsigned getCastle() const { return fCastle; }
+    unsigned getCastle() const { return castle_; }
 
-    E_gameCheckStatus Status() const { return fStatus; }
+    E_gameCheckStatus Status() const { return status_; }
 
-    int enPassant() const { return fEnPassant; }
+    int enPassant() const { return enPassant_; }
 
     size_t ranks() const { return gRanks; }
     size_t files() const { return gFiles; }
 
     void genLegalMoves(List<ChessMove>&);
-    void genLegalMoveSet(List<ChessMove>&,
-                         SANQueue&); // adds the moves to the list and the SAN
-                                     // representations to the queue
+    // adds the moves to the list and the SAN representations to the queue
+    void genLegalMoveSet(List<ChessMove>&, SANQueue&);
 
-    void moveToAlgebraic(std::string&,
-                         ChessMove const&); // no abiguities, move is not checked for legality
+    // no ambiguities, move is not checked for legality
+    void moveToAlgebraic(std::string&, ChessMove const&);
     void moveToAlgebraic(std::string&, ChessMove const&, List<ChessMove>&);
 
     bool algebraicToMove(ChessMove&, char const[]);
@@ -212,8 +202,6 @@ class Board {
 
     void display();
 
-    ~Board();
-
   private:
     void disambiguateMoves(SANQueue&);
     void disambiguate(ChessMove const&, std::string&, SANQueue&);
@@ -225,16 +213,17 @@ class Board {
     void moveToAlgebraicAmbiguity(std::string&, ChessMove const&);
     void removeIllegalMoves(List<ChessMove>&, SANQueue&);
 
-    ChessSquare**           fBoard;
-    static constexpr size_t gRanks = 8,
-                            gFiles = 8; // size of board, ranks and files
+    static constexpr size_t gRanks = 8, gFiles = 8;
+    using Rank   = std::array<ChessSquare, gFiles>;
+    using Fields = std::array<Rank, gRanks>;
+    Fields fBoard{};
 
-    E_toMove          fToMove;
-    E_gameCheckStatus fStatus;
-    unsigned          fCastle;
-    int               fEnPassant; // noCaptures, allCaptures, 0 = a file, 1 = b...
-    unsigned          fPlysSince;
-    unsigned          fMoveNumber;
+    E_toMove          toMove_     = endOfGame;
+    E_gameCheckStatus status_     = notInCheck;
+    unsigned          castle_     = noCastle;
+    int               enPassant_  = allCaptures; // noCaptures, allCaptures, 0 = a file, 1 = b...
+    unsigned          pliesSince_ = 0;
+    unsigned          moveNumber_ = 1;
 };
 
 //-----------------------------------------------------------------------------

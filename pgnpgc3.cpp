@@ -51,9 +51,9 @@ class ToLittleEndian {
 
 ToLittleEndian gToLittleEndian;
 
-//!!? possible expansion (not covered in PGN standard document):
+//!!? Possible expansion (not covered in PGN standard document):
 //  support for comments
-//  special markers for supplemantary tags, instead of kMarkerTagPair
+//  special markers for supplementary tags, instead of kMarkerTagPair
 // additional markers for strings that now only can have 255 length or only 2
 // byte length to have choice (like short and long move sequence) change result
 // tag to one byte // remove length info as well remove date length info (it's
@@ -64,16 +64,17 @@ ToLittleEndian gToLittleEndian;
 #include <cstring>
 #include <iostream>
 
-[[maybe_unused]] static pgcByteT const kMarkerBeginGameReduced  = 0x01;
-static pgcByteT const                  kMarkerTagPair           = 0x02;
-static pgcByteT const                  kMarkerShortMoveSequence = 0x03;
-static pgcByteT const                  kMarkerLongMoveSequence  = 0x04;
-static pgcByteT const                  kMarkerGameDataBegin     = 0x05;
-static pgcByteT const                  kMarkerGameDataEnd       = 0x06;
-static pgcByteT const                  kMarkerSimpleNAG         = 0x07;
-static pgcByteT const                  kMarkerRAVBegin          = 0x08;
-static pgcByteT const                  kMarkerRAVEnd            = 0x09;
-static pgcByteT const                  kMarkerEscape            = 0x0a;
+[[maybe_unused]] //
+static pgcByteT const kMarkerBeginGameReduced  = 0x01;
+static pgcByteT const kMarkerTagPair           = 0x02;
+static pgcByteT const kMarkerShortMoveSequence = 0x03;
+static pgcByteT const kMarkerLongMoveSequence  = 0x04;
+static pgcByteT const kMarkerGameDataBegin     = 0x05;
+static pgcByteT const kMarkerGameDataEnd       = 0x06;
+static pgcByteT const kMarkerSimpleNAG         = 0x07;
+static pgcByteT const kMarkerRAVBegin          = 0x08;
+static pgcByteT const kMarkerRAVEnd            = 0x09;
+static pgcByteT const kMarkerEscape            = 0x0a;
 
 char const* SkipWhite(char const* c) {
     assert(c);
@@ -172,7 +173,7 @@ char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
 // returns the element, or -1 if it didn't find it
 int FindElement(std::string const& target, SANQueue& source) {
     for (unsigned i = 0; i < source.size(); ++i)
-        if (source[i].san() == target)
+        if (source[i].SAN() == target)
             return i;
 
     return -1;
@@ -183,7 +184,7 @@ int FindElement(std::string const& target, SANQueue& source) {
 //    solution was to not record games with illegal moves
 // recursive
 //!?? Game termination must appear after all comments and escape sequences --
-//! pgn standard is not clear in this regard
+//! PGN standard is not clear in this regard
 //!?? A RAV can have a format 1. e4 e5 (1...d5)(1...Nf6) even though the
 //! Standard only specifies 1. e4 e5 (1...d5 (1...Nf6))
 // this performs a lot of clean-up, e.g. move numbers are ignored
@@ -196,7 +197,7 @@ enum E_gameTermination {
     whiteWin,
     blackWin,
     draw
-}; //?!! use later to determine if original STR Result is correct
+}; //?!! Use later to determine if original STR Result is correct
 E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostream& pgc) {
     static Board gPreviousGamePos; // used in case their is something other than a
                                    // move sequence before a RAV
@@ -237,7 +238,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
                 }
             }
             token += *pgn;
-            //                cout << "\ncurToken: " << token;
+            //                cout << "\nCurToken: " << token;
             ++pgn;
             assert(token.length());
             if (token == "(" || token == ")" || token[token.length() - 1] == '.')
@@ -338,7 +339,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
 
     // Process Moves
     //!!? Only need to indicate zero moves if the game is empty and not using
-    //! begin and end game data markers (i.e. using kMarkerBeginGameReduced)
+    //! Begin and end game data markers (i.e. using kMarkerBeginGameReduced)
     if (moves.size()) {
         if (moves.size() <= UCHAR_MAX)
             pgc << kMarkerShortMoveSequence << (pgcByteT)moves.size();
@@ -405,9 +406,10 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
                     gameResult = ProcessMoveSequence(temp, pgn, pgc);
                 } else // SEHE FIXME hanging else
                 {
-                    gPreviousGamePos = game; // their can't be two rav's at the same level for the same
-                                             // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
-                                             // (pgn formal syntax)
+                    // their can't be two RAV's at the same level for the same
+                    // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
+                    // (pgn formal syntax)
+                    gPreviousGamePos = game;
                 }
             }
 
@@ -508,9 +510,10 @@ E_gameTermination PgnToPgc(char const* pgn, char const** endOfGame, std::ostream
             game.processFEN(tags[i].value.c_str());
     }
 
-    E_gameTermination processGame   = none;
-    Board             previousBoard = game;     // used for RAV
-                                                //    gTimer[3].start();
+    E_gameTermination processGame = none;
+    // Board          previousBoard = game;     // used for RAV
+
+    // gTimer[3].start();
     while (processGame == none && *pgn != '\0') // whole game
     {
         processGame = ProcessMoveSequence(game, pgn, pgc);
@@ -541,9 +544,9 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
 
         std::ostringstream pgcGame(std::ios::binary);
 
-        if (!pgn.eof()) //!!? clearing eofbit and then reading from file will set
-                        //! badbit (illegal operation), but need to clear failbit
-                        //! because it fails when pgn reaches eof()
+        if (!pgn.eof()) // Clearing eofbit and then reading from file will set
+                        // badbit (illegal operation), but need to clear
+                        // failbit because it fails when pgn reaches eof()
             pgn.clear();
 
         pgn.read(gameBufferCurrent, kLargestGame - (gameBufferCurrent - gameBuffer));
@@ -562,7 +565,7 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
             case RAVUnderflow: std::cout << "\n RAV underflow."; break;
             case parsingError:
                 std::cout << "\n Parsing error (may be end-of-file).";
-                break; // return gamesProcessed; //??! needs fixing .eof()
+                break; // return gamesProcessed; //??! Needs fixing .eof()
             default:
                 pgc << pgcGame.str();
                 ++gamesProcessed;

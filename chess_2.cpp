@@ -55,69 +55,13 @@ ChessSquare LetterToSquare(char SAN_FEN_Letter) {
 // number "RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr w KQkq - 0 1"
 
 Board::Board()
-    : fBoard(0)
-    , fToMove(endOfGame)
-    , fStatus(notInCheck)
-    , fCastle(noCastle)
-    , fEnPassant(allCaptures)
-    , fPlysSince(0)
-    , fMoveNumber(1) {
-    fBoard = new ChessSquare*[gRanks];
-    for (int i = 0; i < int(gRanks); ++i) {
-        fBoard[i] = new ChessSquare[gFiles];
-    }
+    : toMove_(endOfGame)
+    , status_(notInCheck)
+    , castle_(noCastle)
+    , enPassant_(allCaptures)
+    , pliesSince_(0)
+    , moveNumber_(1) {
     processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-}
-
-Board::Board(Board const& rhs)
-    : fBoard(0)
-    , fToMove(rhs.fToMove)
-    , fStatus(rhs.fStatus)
-    , fCastle(rhs.fCastle)
-    , fEnPassant(rhs.allCaptures)
-    , fPlysSince(rhs.fPlysSince)
-    , fMoveNumber(rhs.fMoveNumber) {
-    fBoard = new ChessSquare*[gRanks];
-    int i;
-    for (i = 0; i < int(gRanks); ++i) {
-        fBoard[i] = new ChessSquare[gFiles];
-    }
-    // copy contents
-    for (i = 0; i < int(gRanks); ++i)
-        for (int j = 0; j < int(gFiles); ++j)
-            fBoard[i][j] = rhs.fBoard[i][j];
-}
-
-Board& Board::operator=(Board const& rhs) {
-    if (this != &rhs) {
-        // delete current contents
-        int i;
-        for (i = 0; i < int(gRanks); ++i) {
-            delete[] fBoard[i];
-            fBoard[i] = 0;
-        }
-        delete[] fBoard;
-        fBoard = 0;
-
-        // create new board
-        fToMove     = rhs.fToMove;
-        fStatus     = rhs.fStatus;
-        fCastle     = rhs.fCastle;
-        fEnPassant  = rhs.allCaptures;
-        fPlysSince  = rhs.fPlysSince;
-        fMoveNumber = rhs.fMoveNumber;
-
-        fBoard = new ChessSquare*[gRanks];
-        for (i = 0; i < int(gRanks); ++i) {
-            fBoard[i] = new ChessSquare[gFiles];
-        }
-
-        // copy contents
-        for (i = 0; i < int(gRanks); ++i)
-            for (int j = 0; j < int(gFiles); ++j)
-                fBoard[i][j] = rhs.fBoard[i][j];
-    }
-    return *this;
 }
 
 bool Board::processFEN(std::string const& FENPosition) {
@@ -155,7 +99,6 @@ bool Board::processFEN(std::string const& FENPosition) {
             if (!numEmpty) // separate from the other if so that when numEmpty becomes
                            // zero again this will be executed
             {
-
                 ++index;
                 if (index >= strlen(curToken)) {
                     if (i != 0 && j != files() - 1) {
@@ -186,8 +129,8 @@ bool Board::processFEN(std::string const& FENPosition) {
     switch (tolower(curToken[index])) // specs say only lower case char, but no
                                       // need to be picky here
     {
-        case 'w': fToMove = white; break;
-        case 'b': fToMove = black; break;
+        case 'w': toMove_ = white; break;
+        case 'b': toMove_ = black; break;
 
         default: // cout << "here 2";
             return false;
@@ -199,14 +142,14 @@ bool Board::processFEN(std::string const& FENPosition) {
     if (!curToken || index >= strlen(curToken))
         return false; // the string is empty
 
-    fCastle = noCastle;
+    castle_ = noCastle;
     do {
         switch (curToken[index]) {
-            case 'K': fCastle |= whiteKS; break;
-            case 'Q': fCastle |= whiteQS; break;
-            case 'k': fCastle |= blackKS; break;
-            case 'q': fCastle |= blackQS; break;
-            case '-': fCastle = noCastle; break;
+            case 'K': castle_ |= whiteKS; break;
+            case 'Q': castle_ |= whiteQS; break;
+            case 'k': castle_ |= blackKS; break;
+            case 'q': castle_ |= blackQS; break;
+            case '-': castle_ = noCastle; break;
 
             default: return false;
         }
@@ -219,16 +162,16 @@ bool Board::processFEN(std::string const& FENPosition) {
         return false; // the string is empty
 
     if (curToken[index] == '-') {
-        fEnPassant = noCaptures;
+        enPassant_ = noCaptures;
     } else {
         //??! Assumes that char values run continuously from a - z
         if (!isalpha(curToken[index]))
             return false;
 
-        fEnPassant = tolower(curToken[index]) - 'a';
+        enPassant_ = tolower(curToken[index]) - 'a';
         assert(fEnPassant > 0);
 
-        if (fEnPassant >= int(gFiles))
+        if (enPassant_ >= int(gFiles))
             return false;
     }
     // ignore the rank info
@@ -239,7 +182,7 @@ bool Board::processFEN(std::string const& FENPosition) {
     if (!curToken || index >= strlen(curToken))
         return false; // the string is empty
 
-    fPlysSince = atoi(curToken);
+    pliesSince_ = atoi(curToken);
 
     // Record 6 -- current move number (starts at 1)
     curToken = strtok(0, " ");
@@ -247,8 +190,8 @@ bool Board::processFEN(std::string const& FENPosition) {
     if (!curToken || index >= strlen(curToken))
         return false; // the string is empty
 
-    fMoveNumber = atoi(curToken);
-    if (fMoveNumber < 1)
+    moveNumber_ = atoi(curToken);
+    if (moveNumber_ < 1)
         return false;
 
     return true;
@@ -263,12 +206,12 @@ void Board::display() {
         }
     }
     std::cout << "\n  abcdefgh \n";
-    std::cout << "\nTo Move:\t " << fToMove;
-    std::cout << "\nCastle:\t " << fCastle;
-    std::cout << "\nStatus:\t " << fStatus;
-    std::cout << "\nEnPassant:\t " << fEnPassant;
-    std::cout << "\nMove: " << fMoveNumber;
-    std::cout << "\nPlies Since:\t " << fPlysSince;
+    std::cout << "\nTo Move:\t " << toMove_;
+    std::cout << "\nCastle:\t " << castle_;
+    std::cout << "\nStatus:\t " << status_;
+    std::cout << "\nEnPassant:\t " << enPassant_;
+    std::cout << "\nMove: " << moveNumber_;
+    std::cout << "\nPlies Since:\t " << pliesSince_;
 }
 
 // true on success
@@ -281,8 +224,8 @@ bool Board::move(ChessMove const& move) {
     if (fBoard[move.rf()][move.ff()].isEmpty() ||
         IsSameColor(fBoard[move.rf()][move.ff()], fBoard[move.rt()][move.ft()]) ||
         (move.ff() == move.ft() && move.rf() == move.rt()) ||
-        (move.isEnPassant() && fEnPassant != allCaptures && fEnPassant != move.ft()) ||
-        fToMove == endOfGame) {
+        (move.isEnPassant() && enPassant_ != allCaptures && enPassant_ != move.ft()) ||
+        toMove_ == endOfGame) {
         return false;
     }
 
@@ -355,10 +298,10 @@ bool Board::processMove(ChessMove const& m) {
 bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
     int      enPassant = fBoard[m.rf()][m.ff()].isPawn() && abs(m.rt() - m.rf()) > 1 ? m.ft() : noCaptures;
     unsigned plysSince =
-        !fBoard[m.rf()][m.ff()].isPawn() && fBoard[m.rt()][m.ft()].isEmpty() ? fPlysSince + 1 : 0;
+        !fBoard[m.rf()][m.ff()].isPawn() && fBoard[m.rt()][m.ft()].isEmpty() ? pliesSince_ + 1 : 0;
 
     // eliminate castling move's
-    int castle = fCastle;
+    int castle = castle_;
     switch (fBoard[m.rf()][m.ff()].contents()) {
         case ChessSquare::whiteKing: castle &= ~(whiteKS | whiteQS); break;
         case ChessSquare::blackKing: castle &= ~(blackKS | blackQS); break;
@@ -378,41 +321,30 @@ bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
     }
 
     // isLegal()
-    if (fToMove != endOfGame && move(m)) {
-        fStatus    = CheckStatus(*this, allMoves);
-        fEnPassant = enPassant;
-        fPlysSince = plysSince;
-        fCastle    = castle;
+    if (toMove_ != endOfGame && move(m)) {
+        status_     = CheckStatus(*this, allMoves);
+        enPassant_  = enPassant;
+        pliesSince_ = plysSince;
+        castle_     = castle;
 
         // SEHE FIXME comparisons?
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wenum-compare"
-        if (fStatus == noStatus || fStatus == check) // otherwise end of game
+        if (status_ == noStatus || status_ == check) // otherwise end of game
 #pragma GCC diagnostic pop
         {
             switchMove();
-            if (fToMove == white) {
-                ++fMoveNumber;
+            if (toMove_ == white) {
+                ++moveNumber_;
             }
         } else {
-            fToMove = endOfGame;
+            toMove_ = endOfGame;
         }
         return true;
     } else {
         return false;
     }
 }
-
-Board::~Board() {
-    for (int i = 0; i < int(gRanks); ++i) {
-        delete[] fBoard[i];
-        fBoard[i] = 0;
-    }
-    delete[] fBoard;
-    fBoard = 0;
-}
-
-inline void Board::genPseudoLegalMoves(List<ChessMove>& moves) { GenPseudoLegalMoves(*this, moves); }
 
 inline void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move) {
     List<ChessMove> allMoves;
@@ -446,9 +378,10 @@ void Board::genLegalMoveSet(List<ChessMove>& allMoves, SANQueue& allSAN) {
 inline void Board::addMove(int rf, int ff, int rt, int ft, ChessMove::E_type type, List<ChessMove>& moves,
                            SANQueue& allSAN) {
     std::string sanValue;
-    moves.add(ChessMove(rf, ff, rt, ft, type));
-    moveToAlgebraicAmbiguity(sanValue, ChessMove(rf, ff, rt, ft, type));
-    allSAN.add(ChessMoveSAN(rf, ff, rt, ft, sanValue, type));
+    ChessMove   mv{rf, ff, rt, ft, type};
+    moves.add(mv);
+    moveToAlgebraicAmbiguity(sanValue, mv);
+    allSAN.add(ChessMoveSAN(mv, sanValue));
 }
 
 void Board::genLegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
@@ -459,7 +392,7 @@ void Board::genLegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
     // FIXME SEHE enum comparison
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wenum-compare"
-    if (fStatus == noStatus) {
+    if (status_ == noStatus) {
 #pragma GCC diagnostic pop
         if (isWhiteToMove() && ((getCastle() & whiteKS) || (getCastle() & whiteQS))) {
             // search for king on first rank
@@ -1011,16 +944,16 @@ void Board::disambiguateMoves(SANQueue& allSAN) {
     int  i;
     for (i = 0; i < (signed)allSAN.size() - 1; ++i) {
         if (allSAN[i] == allSAN[i + 1]) {
-            disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
+            disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
             ambiguity = true;
         } else if (ambiguity) {
-            disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
+            disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
             ambiguity = false;
         }
     }
     if (ambiguity) // for the last element
     {
-        disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
+        disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
     }
 }
 

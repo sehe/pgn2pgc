@@ -1,6 +1,5 @@
 yml
 param
-#onst
 enum
 str
 strlen
@@ -130,6 +129,19 @@ pgn2pgc
 EOL
 sizeof
 fileName
-nEnPassant
 Wenum
 const
+EnPassant
+noCaptures
+allCaptures
+Nf6
+Libes
+kMarkerTagPair
+RAV
+RAV's
+eofbit
+badbit
+failbit
+eof
+gamesProcessed
+previousBoard
