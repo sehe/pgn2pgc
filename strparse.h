@@ -8,7 +8,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // remove trailing and leading whitespace
-char* RemoveWhiteSpace(char c[]);
+char *RemoveWhiteSpace(char c[]);
 
-// remove all of the characters that are in remove[] from c[], return the new c[]
-char* RemoveChars(char c[], const char remove[]);
+// remove all of the characters that are in remove[] from c[], return the new
+// c[]
+char *RemoveChars(char c[], const char remove[]);

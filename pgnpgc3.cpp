@@ -1,21 +1,7 @@
-///////////////////////////////////////////////////////////////////////////////
-//
-// *** note on standard iostream error reporting: ***
-//
-//	bad() returns hardfail and badbit
-//	fail() returns failbit, hardfail, and badbit
-//	eof() returns eofbit
-//	good() returns nonzero if no state bits are set (!fail() && !eof() )
-//	operator void*() returns !fail() (used like if(some_stream) no_errors)
-//	operator!() returns fail() (used like if(!some_stream) errors
-//
-///////////////////////////////////////////////////////////////////////////////
-
 #include "stpwatch.h" // profiling
 StopWatch gTimer[10];
 
 #include <assert.h>
-#include <climits> // UCHAR_MAX
 #include <cstring>
 #include <ctype.h>
 #include <filesystem>
@@ -66,8 +52,8 @@ public:
 ToLittleEndian gToLittleEndian;
 
 //!!? possible expansion (not covered in PGN standard document):
-//	support for comments
-//	special markers for supplemantary tags, instead of kMarkerTagPair
+//  support for comments
+//  special markers for supplemantary tags, instead of kMarkerTagPair
 // additional markers for strings that now only can have 255 length or only 2
 // byte length to have choice (like short and long move sequence) change result
 // tag to one byte // remove length info as well remove date length info (it's
@@ -100,8 +86,8 @@ void SkipWhite(const char **c) {
   *c = SkipWhite(*c);
 }
 
-//	skips over all chars till it finds any chars in target, then moves just
-//past target
+// skips over all chars till it finds any chars in target, then moves just past target
+//
 // "xxxx[xxx"
 //       ^
 const char *SkipTo(const char *c, const char target[]) {
@@ -140,7 +126,7 @@ void SkipChar(const char **c, char unwanted[]) {
 }
 
 struct PGNTag {
-    std::string name, value;
+  std::string name, value;
 };
 
 // adds all of the tags to the list, and returns where the tags ended.
@@ -192,14 +178,14 @@ int FindElement(const std::string &target, SANQueue &source) {
   return -1;
 }
 
-//??! illegal moves will mess up the .pgc, changing will be non-trivial (e.g.
-//illegal move just before RAVBegin)
+//??! Illegal moves will mess up the .pgc, changing will be non-trivial (e.g.
+// illegal move just before RAVBegin)
 //    solution was to not record games with illegal moves
-// recusive
-//!?? game termination must appear after all comments and escape sequences --
-//!pgn standard is not clear in this regard
-//!?? a RAV can have a format 1. e4 e5 (1...d5)(1...Nf6) even though the
-//!standard only specifies 1. e4 e5 (1...d5 (1...Nf6))
+// recursive
+//!?? Game termination must appear after all comments and escape sequences --
+//! pgn standard is not clear in this regard
+//!?? A RAV can have a format 1. e4 e5 (1...d5)(1...Nf6) even though the
+//! Standard only specifies 1. e4 e5 (1...d5 (1...Nf6))
 // this performs a lot of clean-up, e.g. move numbers are ignored
 enum E_gameTermination {
   none, // still need to processing game
@@ -259,7 +245,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
         }
       }
       token += *pgn;
-      //				cout << "\ncurToken: " << token;
+      //                cout << "\ncurToken: " << token;
       ++pgn;
       assert(token.length());
       if (token == "(" || token == ")" || token[token.length() - 1] == '.')
@@ -345,7 +331,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
     } else if (token[0] == '%') // escape sequence
     {
       escapeToken =
-          &token.c_str()[1]; //??! an escape sequence can have null, but
+          &token.c_str()[1]; //??! An escape sequence can have null, but
                              // this function uses char*, so it can't
       while (*pgn != '\n' && *pgn != '\0') {
         escapeToken += *pgn;
@@ -360,8 +346,8 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
   }
 
   // Process Moves
-  //!!? only need to indicate zero moves if the game is empty and not using
-  //!begin and end game data markers (i.e. using kMarkerBeginGameReduced)
+  //!!? Only need to indicate zero moves if the game is empty and not using
+  //! begin and end game data markers (i.e. using kMarkerBeginGameReduced)
   if (moves.size()) {
     if (moves.size() <= UCHAR_MAX)
       pgc << kMarkerShortMoveSequence << (pgcByteT)moves.size();
@@ -404,7 +390,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
       gTimer[3].stop();
 
       assert(FindElement(san, SANMoves) != -1);
-      /*			if(FindElement(san, SANMoves) == -1)
+      /*            if(FindElement(san, SANMoves) == -1)
                               {
                                       game.display();
                                       SANMoves.gotoFirst();
@@ -416,8 +402,8 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
                                       SANMoves.gotoFirst();
                               }
       */
-      //			std::cout << "\nMove: " << san << "\n";
-      //			game.display();
+      //            std::cout << "\nMove: " << san << "\n";
+      //            game.display();
 
       pgc << (pgcByteT)FindElement(san, SANMoves);
 
@@ -510,7 +496,7 @@ E_gameTermination PgnToPgc(const char *pgn, const char **endOfGame,
     for (j = 0; j < int(tags.size()) && !foundTag; ++j) {
       if (tags[j].name == sevenTagRoster[i]) {
         assert(tags[j].value.length() <=
-               UCHAR_MAX); //??! need to deal with this
+               UCHAR_MAX); //??! Need to deal with this
         pgc << (pgcByteT)tags[j].value.length() << tags[j].value;
         tags.remove(j);
         foundTag = true;
@@ -532,14 +518,14 @@ E_gameTermination PgnToPgc(const char *pgn, const char **endOfGame,
         pgc << (pgcByteT)1 << '*';
         break;
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
     }
   }
   // any remaining tags
-  //??! case information is lost when parsing tags
+  //??! Case information is lost when parsing tags
   for (i = 0; i < int(tags.size()); ++i) {
-    assert(tags[i].name.length() < UCHAR_MAX); //??! need to deal with this
+    assert(tags[i].name.length() < UCHAR_MAX); //??! Need to deal with this
     pgc << kMarkerTagPair << (pgcByteT)tags[i].name.length() << tags[i].name
         << (pgcByteT)tags[i].value.length() << tags[i].value;
 
@@ -549,7 +535,7 @@ E_gameTermination PgnToPgc(const char *pgn, const char **endOfGame,
 
   E_gameTermination processGame = none;
   Board previousBoard = game;                 // used for RAV
-                                              //	gTimer[3].start();
+                                              //    gTimer[3].start();
   while (processGame == none && *pgn != '\0') // whole game
   {
     processGame = ProcessMoveSequence(game, pgn, pgc);
@@ -573,7 +559,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
 
   std::cout << "\n"; // USER UPDATE
 
-  auto oldPGNFlags = pgn.flags(); //!!? ios::skipws was set and causing problems
+  auto oldPGNFlags = pgn.flags();
   pgn >> std::noskipws;
   unsigned totalGames = 0;
   while (!pgn.bad() && pgc.good()) {
@@ -593,10 +579,10 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
     gameBufferCurrent[received] = '\0';
 
     const char *endOfGame = 0;
-    //		gTimer[2].start();
+    //      gTimer[2].start();
     ++totalGames;
     E_gameTermination result = PgnToPgc(gameBuffer, &endOfGame, pgcGame);
-    //		gTimer[2].stop();
+    //      gTimer[2].stop();
 
     switch (result) {
     case illegalMove:
@@ -634,7 +620,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
 #undef TEST
 
 #include <cassert>
-#include <cctype> // isalnum()
+#include <cctype>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -676,7 +662,7 @@ int main(int argc, char *argv[]) {
   assert(argc);
 
   if (argc > 3) {
-    std::cout << "\nUsage: PGN2PGC [source_file [report_file]]\n";
+    std::cout << "\nUsage: pgn2pgc [source_file [report_file]]\n";
     return EXIT_FAILURE;
   }
 
@@ -702,7 +688,6 @@ int main(int argc, char *argv[]) {
   }
 
   // open the input stream
-  // use ios::binary so that we don't limit the programs possible uses
   std::ifstream inputStream(inputFileName, std::ios::binary);
 
   // was the file opened successfully?
@@ -730,9 +715,8 @@ int main(int argc, char *argv[]) {
         outputFileName = temp;
     }
 
-    // if (!findfirst(outputFileName.str(), &matchingFileInfo, 0)) {
     if (exists(outputFileName)) {
-      // ask the user if the're sure they want to overwrite the file
+      // ask the user if they're sure they want to overwrite the file
       std::cout << "\nFile " << outputFileName
                 << " already exists, do you want to overwrite it? (y/n) ";
 
@@ -760,7 +744,6 @@ int main(int argc, char *argv[]) {
     outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
 
   // open the ouput stream
-  // use ios::binary so that we don't limit the programs possible uses
   std::ofstream outputStream(outputFileName,
                              std::ios::trunc | std::ios::binary);
 
@@ -775,9 +758,9 @@ int main(int argc, char *argv[]) {
             << "\n to PGC format and sending the output to file "
             << outputFileName << "";
 
-  //	gTimer[1].start();
+  //    gTimer[1].start();
   unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
-  //	gTimer[1].stop();
+  //    gTimer[1].stop();
 
   std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " "
             << gameProcessed << " game" << (gameProcessed == 1 ? "" : "s")
@@ -792,11 +775,11 @@ int main(int argc, char *argv[]) {
     inputStream.close();
     outputStream.close();
 
-    // delete oldfile
+    // delete old file
     std::error_code ec;
     remove(inputFileName, ec);
     if (ec) {
-      // print the appropiate message
+      // print the appropriate message
       std::cerr << "Unable to delete old input file " + ec.message()
                 << std::endl;
       return EXIT_FAILURE;
@@ -807,7 +790,7 @@ int main(int argc, char *argv[]) {
 
     if (ec) // non-zero on failure
     {
-      // print the appropiate message
+      // print the appropriate message
       std::cerr << "Unable to rename the temporary file " + ec.message()
                 << std::endl;
       return EXIT_FAILURE;
@@ -856,7 +839,7 @@ void ReportFileError(FileOperationErrorT operation, fs::path const &name) {
     break;
 
   default:
-    assert(0); // NotReached
+    assert(0); // Not reached
   }
 
   std::cerr << std::endl;
@@ -868,7 +851,6 @@ void ReportFileError(FileOperationErrorT operation, fs::path const &name) {
 bool IsFileNameReserved(fs::path const &fileName) {
   std::string const name = fileName.filename();
 
-  // stricmp returns 0 if the strings are equal (case-insensitive)
   for (auto reservedName : {"PRN", "LPT1", "LPT2"})
     if (::strcasecmp(reservedName, name.c_str()) == 0)
       return true;

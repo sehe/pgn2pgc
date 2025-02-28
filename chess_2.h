@@ -124,12 +124,12 @@ public:
   ChessMoveSAN(int y1, int x1, int y2, int x2, std::string SAN,
                ChessMove::E_type kind = ChessMove::E_type::normal)
       : move_{y1, x1, y2, x2, kind}, fSAN(std::move(SAN)) {}
-  ChessMove const& move() const { return move_; }
+  ChessMove const &move() const { return move_; }
   std::string &san() { return fSAN; }
   bool operator<(const ChessMoveSAN &b) const { return fSAN < b.fSAN; }
-  //bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
+  // bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
   bool operator==(const ChessMoveSAN &b) const { return fSAN == b.fSAN; }
-  //bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
+  // bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
 
 private:
   ChessMove move_{};

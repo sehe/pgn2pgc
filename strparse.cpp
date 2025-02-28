@@ -5,8 +5,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #include <cassert>
-#include <cstring>
 #include <cctype>
+#include <cstring>
 
 #include "strparse.h"
 
@@ -28,7 +28,8 @@ char *RemoveWhiteSpace(char c[]) {
   return c;
 }
 
-// remove all of the characters that are in remove[] from c[], return the new c[]
+// remove all of the characters that are in remove[] from c[], return the new
+// c[]
 char *RemoveChars(char c[], const char remove[]) {
   assert(remove);
   assert(c);
