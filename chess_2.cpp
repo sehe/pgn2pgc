@@ -633,8 +633,7 @@ void Board::removeIllegalMoves(List<ChessMove> &allMoves, SANQueue &allSAN) {
       if (b.canCaptureSquare(m.rt(), m.ft())) {
         allMoves.remove(i);
         for (unsigned j = 0; j < allSAN.size(); ++j)
-          if (allSAN[j].ChessMove::operator==(
-                  m)) // c++ at it's finest :)
+          if (allSAN[j].move() == m)
           {
             allSAN.remove(j);
             break;
@@ -645,7 +644,7 @@ void Board::removeIllegalMoves(List<ChessMove> &allMoves, SANQueue &allSAN) {
       if (b.canCaptureSquare(targetSquare.r, targetSquare.f)) {
         allMoves.remove(i);
         for (unsigned j = 0; j < allSAN.size(); ++j)
-          if (allSAN[j].ChessMove::operator==(m)) {
+          if (allSAN[j].move() == m) {
             allSAN.remove(j);
             break;
           }
@@ -1076,19 +1075,19 @@ void Board::disambiguate(const ChessMove &move, std::string &san, SANQueue &allS
   if (san.length()) {
     bool conflict = false, rankConflict = false, fileConflict = false;
     for (int i = 0; i < int(allSAN.size()); ++i) {
-      if (allSAN[i].rt() == move.rt() &&
-          allSAN[i].ft() == move.ft() && // the same 'to' square
-          allSAN[i].move() != move &&    // not the same move
+      auto &sanMv = allSAN[i].move();
+      if (sanMv.rt() == move.rt() &&
+          sanMv.ft() == move.ft() && // the same 'to' square
+          sanMv != move &&           // not the same move
           fBoard[move.rf()][move.ff()].contents() ==
-              fBoard[allSAN[i].rf()][allSAN[i].ff()]
-                  .contents() && // same type of piece
+              fBoard[sanMv.rf()][sanMv.ff()].contents() && // same type of piece
           (!rankConflict ||
            !fileConflict)) // if you have two conflicts, no need to continue
       {
         conflict = true;
-        if (move.rf() == allSAN[i].rf())
+        if (move.rf() == sanMv.rf())
           rankConflict = true;
-        else if (move.ff() == allSAN[i].ff())
+        else if (move.ff() == sanMv.ff())
           fileConflict = true;
       }
     }
@@ -1111,16 +1110,16 @@ void Board::disambiguateMoves(SANQueue &allSAN) {
   int i;
   for (i = 0; i < (signed)allSAN.size() - 1; ++i) {
     if (allSAN[i] == allSAN[i + 1]) {
-      disambiguate(allSAN[i], allSAN[i].san(), allSAN);
+      disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
       ambiguity = true;
     } else if (ambiguity) {
-      disambiguate(allSAN[i], allSAN[i].san(), allSAN);
+      disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
       ambiguity = false;
     }
   }
   if (ambiguity) // for the last element
   {
-    disambiguate(allSAN[i], allSAN[i].san(), allSAN);
+    disambiguate(allSAN[i].move(), allSAN[i].san(), allSAN);
   }
 }
 

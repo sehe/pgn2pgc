@@ -118,22 +118,22 @@ private:
   E_type fType;
 };
 
-class ChessMoveSAN : public ChessMove {
+class ChessMoveSAN {
 public:
-  ChessMoveSAN() : ChessMove() {}
-  ChessMoveSAN(int y1, int x1, int y2, int x2, const std::string &SAN,
-               enum E_type kind = normal)
-      : ChessMove(y1, x1, y2, x2, kind), fSAN(SAN) {}
-  ChessMove move() const { return ChessMove(rf(), ff(), rt(), ft(), type()); }
+  ChessMoveSAN() = default; // FIXME?
+  ChessMoveSAN(int y1, int x1, int y2, int x2, std::string SAN,
+               ChessMove::E_type kind = ChessMove::E_type::normal)
+      : move_{y1, x1, y2, x2, kind}, fSAN(std::move(SAN)) {}
+  ChessMove const& move() const { return move_; }
   std::string &san() { return fSAN; }
-  // SEHE TODO clenup inheritance ambiguities
   bool operator<(const ChessMoveSAN &b) const { return fSAN < b.fSAN; }
-  bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
+  //bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
   bool operator==(const ChessMoveSAN &b) const { return fSAN == b.fSAN; }
-  bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
+  //bool operator!=(const ChessMoveSAN &b) const { return fSAN != b.fSAN; }
 
 private:
-  std::string fSAN;
+  ChessMove move_{};
+  std::string fSAN{};
 };
 
 // 'R' == rook 'K' == king..
