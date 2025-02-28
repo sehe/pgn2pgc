@@ -199,20 +199,20 @@ public:
   size_t ranks() const { return gRanks; }
   size_t files() const { return gFiles; }
 
-  void genLegalMoves(List<ChessMove> *);
-  void genLegalMoveSet(List<ChessMove> *,
-                       SANQueue *); // adds the moves to the list and the SAN
+  void genLegalMoves(List<ChessMove> &);
+  void genLegalMoveSet(List<ChessMove> &,
+                       SANQueue &); // adds the moves to the list and the SAN
                                     // representations to the queue
 
   void moveToAlgebraic(
-      std::string *,
+      std::string &,
       const ChessMove &); // no abiguities, move is not checked for legality
-  void moveToAlgebraic(std::string *, const ChessMove &, List<ChessMove> &);
+  void moveToAlgebraic(std::string &, const ChessMove &, List<ChessMove> &);
 
-  bool algebraicToMove(ChessMove *, const char[]);
-  bool algebraicToMove(ChessMove *, const char[], List<ChessMove> &);
+  bool algebraicToMove(ChessMove &, const char[]);
+  bool algebraicToMove(ChessMove &, const char[], List<ChessMove> &);
 
-  bool algebraicToSAN(std::string *, const std::string &, List<ChessMove> &,
+  bool algebraicToSAN(std::string &, const std::string &, List<ChessMove> &,
                       SANQueue &); // cleans up move
 
   bool canCaptureSquare(size_t r, size_t f);
@@ -233,17 +233,18 @@ public:
 
 private:
   void disambiguateMoves(SANQueue &);
-  void disambiguate(const ChessMove &, std::string *, SANQueue &);
-  void genPseudoLegalMoves(List<ChessMove> *);
-  void genPseudoLegalMoves(List<ChessMove> *, SANQueue *);
-  void genLegalMoves(List<ChessMove> *, SANQueue *);
+  void disambiguate(const ChessMove &, std::string &, SANQueue &);
+  void genPseudoLegalMoves(List<ChessMove> &);
+  void genPseudoLegalMoves(List<ChessMove> &, SANQueue &);
+  void genLegalMoves(List<ChessMove> &, SANQueue &);
   void addMove(int rf, int ff, int rt, int ft, ChessMove::E_type type,
-               List<ChessMove> *moves, SANQueue *allSAN);
-  void moveToAlgebraicAmbiguity(std::string *, const ChessMove &);
-  void removeIllegalMoves(List<ChessMove> *, SANQueue *);
+               List<ChessMove> &moves, SANQueue &allSAN);
+  void moveToAlgebraicAmbiguity(std::string &, const ChessMove &);
+  void removeIllegalMoves(List<ChessMove> &, SANQueue &);
 
   ChessSquare **fBoard;
-  static const size_t gRanks, gFiles; // size of board, ranks and files
+  static constexpr size_t gRanks = 8,
+                          gFiles = 8; // size of board, ranks and files
 
   E_toMove fToMove;
   E_gameCheckStatus fStatus;
@@ -255,7 +256,7 @@ private:
 
 //-----------------------------------------------------------------------------
 // pseudoLegal: not castling, and not worrying about being left in check
-void GenPseudoLegalMoves(const Board &b, List<ChessMove> *moves);
+void GenPseudoLegalMoves(const Board &b, List<ChessMove> &moves);
 
 // returns if the person to move is in check
 bool IsInCheck(Board b);
@@ -267,21 +268,21 @@ bool WillBeInCheck(Board b, const ChessMove &move);
 bool WillGiveCheck(Board b, const ChessMove &move);
 
 // all legal moves are added to the list, including castleling
-void GenLegalMoves(const Board &b, List<ChessMove> *moves);
+void GenLegalMoves(const Board &b, List<ChessMove> &moves);
 
 // what is the status of the position on the board?
 E_gameCheckStatus CheckStatus(const Board &b, List<ChessMove> &);
 
 // appends the move to 'out'
 // The move has not yet been made on the board
-void MoveToAlgebraic(const ChessMove &move, const Board &b, std::string *out);
+void MoveToAlgebraic(const ChessMove &move, const Board &b, std::string &out);
 
 // in case you already know all of the chessMoves to save processing time (very
 // significant in some cases)
 //!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
 //!&allMoves) just before this function
 void MoveToAlgebraic(const ChessMove &move, const Board &b,
-                     List<ChessMove> &allMoves, std::string *out);
+                     List<ChessMove> &allMoves, std::string &out);
 
 // return false if 'b', as this can mean a file
 inline bool IsPromoChar(char c) {
@@ -290,10 +291,10 @@ inline bool IsPromoChar(char c) {
 }
 
 // case insensitive
-unsigned NumCharsInStr(const char *str, int c);
+unsigned NumCharsInStr(const char &str, int c);
 
 // converts the SAN string to a ChessMove
-bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move);
+bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove &move);
 
 bool AlgebraicToMove(const char constSAN[], const Board &b,
-                     List<ChessMove> &allMoves, ChessMove *move);
+                     List<ChessMove> &allMoves, ChessMove &move);

@@ -78,7 +78,7 @@ ToLittleEndian gToLittleEndian;
 #include <cstring>
 #include <iostream>
 
-static const pgcByteT kMarkerBeginGameReduced = 0x01;
+[[maybe_unused]] static const pgcByteT kMarkerBeginGameReduced = 0x01;
 static const pgcByteT kMarkerTagPair = 0x02;
 static const pgcByteT kMarkerShortMoveSequence = 0x03;
 static const pgcByteT kMarkerLongMoveSequence = 0x04;
@@ -376,7 +376,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
       SANQueue SANMoves;
       List<ChessMove> allMoves;
       gTimer[2].start();
-      game.genLegalMoveSet(&allMoves, &SANMoves); // 57%
+      game.genLegalMoveSet(allMoves, SANMoves); // 57%
       gTimer[2].stop();
 
       /*/ debugBegin
@@ -392,7 +392,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
       */// debugEnd
       gTimer[3].start();
       ChessMove cm;
-      if (!game.algebraicToMove(&cm, moves[i].c_str(), allMoves)) {
+      if (!game.algebraicToMove(cm, moves[i].c_str(), allMoves)) {
         std::cout << "\nillegal move: " << moves[i].c_str();
         std::cout << "\n";
         game.display();
@@ -400,7 +400,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
       }
       std::string san;
 
-      game.moveToAlgebraic(&san, cm, allMoves);
+      game.moveToAlgebraic(san, cm, allMoves);
       gTimer[3].stop();
 
       assert(FindElement(san, SANMoves) != -1);
