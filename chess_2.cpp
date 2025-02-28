@@ -730,7 +730,7 @@ void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
     // destination square
     o << ChessFileToChar(m.ft()) << ChessRankToChar(m.rt());
   }
-  out->append(o.str());
+  *out += o.str();
 }
 
 void Board::genPseudoLegalMoves(List<ChessMove> *moves, SANQueue *allSAN) {
@@ -1111,14 +1111,13 @@ void Board::disambiguate(const ChessMove &move, string *san, SANQueue &allSAN) {
     // resolve if the piece is on same file of rank (if there are three same
     // pieces then use file and rank)
     if (conflict && !rankConflict && !fileConflict) {
-      san->insert(1, ChessFileToChar(move.ff()));
+      san->insert(1, 1, ChessFileToChar(move.ff()));
     } else if (conflict && !rankConflict) {
-      san->insert(1, ChessRankToChar(move.rf()));
+      san->insert(1, 1, ChessRankToChar(move.rf()));
     } else if (fileConflict && rankConflict) {
-      san->insert(1, string(ChessFileToChar(move.ff())) +
-                         ChessRankToChar(move.rf()));
+      san->insert(1, {ChessFileToChar(move.ff()), ChessRankToChar(move.rf())});
     } else if (rankConflict) {
-      san->insert(1, ChessFileToChar(move.ff()));
+      san->insert(1, 1, ChessFileToChar(move.ff()));
     }
   }
 }
@@ -1625,7 +1624,7 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
     // destination square
     o << ChessFileToChar(move.ft()) << ChessRankToChar(move.rt());
   }
-  out->append(o.str());
+  *out += o.str();
 }
 
 // in case you already know all of the chessMoves to save processing time (very
@@ -1731,7 +1730,7 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b,
     // Check or Checkmate
     //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
   }
-  out->append(o.str());
+  *out += o.str();
 }
 
 // case insensitive
@@ -1801,10 +1800,10 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].type() == ChessMove::whiteCastleQS ||
             allMoves[i].type() == ChessMove::blackCastleQS) {
-          assert(b.isWhiteToMove() &&
-                     allMoves[i].type() == ChessMove::whiteCastleQS ||
-                 b.isBlackToMove() &&
-                     allMoves[i].type() == ChessMove::blackCastleQS);
+          assert((b.isWhiteToMove() &&
+                  allMoves[i].type() == ChessMove::whiteCastleQS) ||
+                 (b.isBlackToMove() &&
+                  allMoves[i].type() == ChessMove::blackCastleQS));
           *move = allMoves[i];
           return true;
         }
@@ -1813,10 +1812,10 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].type() == ChessMove::whiteCastleKS ||
             allMoves[i].type() == ChessMove::blackCastleKS) {
-          assert(b.isWhiteToMove() &&
-                     allMoves[i].type() == ChessMove::whiteCastleKS ||
-                 b.isBlackToMove() &&
-                     allMoves[i].type() == ChessMove::blackCastleKS);
+          assert((b.isWhiteToMove() &&
+                  allMoves[i].type() == ChessMove::whiteCastleKS) ||
+                 (b.isBlackToMove() &&
+                  allMoves[i].type() == ChessMove::blackCastleKS));
           *move = allMoves[i];
           return true;
         }
@@ -2014,10 +2013,10 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].type() == ChessMove::whiteCastleQS ||
             allMoves[i].type() == ChessMove::blackCastleQS) {
-          assert(b.isWhiteToMove() &&
-                     allMoves[i].type() == ChessMove::whiteCastleQS ||
-                 b.isBlackToMove() &&
-                     allMoves[i].type() == ChessMove::blackCastleQS);
+          assert((b.isWhiteToMove() &&
+                  allMoves[i].type() == ChessMove::whiteCastleQS) ||
+                 (b.isBlackToMove() &&
+                  allMoves[i].type() == ChessMove::blackCastleQS));
           *move = allMoves[i];
           return true;
         }
@@ -2026,10 +2025,10 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].type() == ChessMove::whiteCastleKS ||
             allMoves[i].type() == ChessMove::blackCastleKS) {
-          assert(b.isWhiteToMove() &&
-                     allMoves[i].type() == ChessMove::whiteCastleKS ||
-                 b.isBlackToMove() &&
-                     allMoves[i].type() == ChessMove::blackCastleKS);
+          assert((b.isWhiteToMove() &&
+                  allMoves[i].type() == ChessMove::whiteCastleKS) ||
+                 (b.isBlackToMove() &&
+                  allMoves[i].type() == ChessMove::blackCastleKS));
           *move = allMoves[i];
           return true;
         }

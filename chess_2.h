@@ -109,6 +109,7 @@ public:
       : ChessMove(y1, x1, y2, x2, kind), fSAN(SAN) {}
   ChessMove move() const { return ChessMove(rf(), ff(), rt(), ft(), type()); }
   string &san() { return fSAN; }
+  // SEHE TODO clenup inheritance ambiguities
   bool operator<(const ChessMoveSAN &b) const { return fSAN < b.fSAN; }
   bool operator>(const ChessMoveSAN &b) const { return fSAN > b.fSAN; }
   bool operator==(const ChessMoveSAN &b) const { return fSAN == b.fSAN; }
