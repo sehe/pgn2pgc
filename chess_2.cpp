@@ -142,7 +142,7 @@ Board &Board::operator=(const Board &rhs) {
   return *this;
 }
 
-bool Board::processFEN(const string &FENPosition) {
+bool Board::processFEN(const std::string &FENPosition) {
   char *const FEN = new char[FENPosition.length() + 1];
   AdoptArray<char> adopter(FEN); // so that if return prematurely resource will
                                  // be released by destructor
@@ -468,7 +468,7 @@ inline void Board::genPseudoLegalMoves(List<ChessMove> *moves) {
   GenPseudoLegalMoves(*this, moves);
 }
 
-inline void Board::moveToAlgebraic(string *SAN, const ChessMove &move) {
+inline void Board::moveToAlgebraic(std::string *SAN, const ChessMove &move) {
   assert(SAN);
   List<ChessMove> allMoves;
   genLegalMoves(&allMoves);
@@ -476,7 +476,7 @@ inline void Board::moveToAlgebraic(string *SAN, const ChessMove &move) {
 }
 
 // inline
-void Board::moveToAlgebraic(string *SAN, const ChessMove &move,
+void Board::moveToAlgebraic(std::string *SAN, const ChessMove &move,
                             List<ChessMove> &allMoves) {
   assert(SAN);
   MoveToAlgebraic(move, *this, allMoves, SAN);
@@ -508,7 +508,7 @@ void Board::genLegalMoveSet(List<ChessMove> *allMoves, SANQueue *allSAN) {
 inline void Board::addMove(int rf, int ff, int rt, int ft,
                            ChessMove::E_type type, List<ChessMove> *moves,
                            SANQueue *allSAN) {
-  string sanValue;
+  std::string sanValue;
   moves->add(ChessMove(rf, ff, rt, ft, type));
   moveToAlgebraicAmbiguity(&sanValue, ChessMove(rf, ff, rt, ft, type));
   allSAN->add(ChessMoveSAN(rf, ff, rt, ft, sanValue, type));
@@ -670,7 +670,7 @@ void Board::removeIllegalMoves(List<ChessMove> *allMoves, SANQueue *allSAN) {
 
 // doesn't worry about any ambiguities, nor does it indicate check
 // or checkmate status (which don't alter sort order anyway)
-void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
+void Board::moveToAlgebraicAmbiguity(std::string *out, const ChessMove &m) {
   std::ostringstream o;
 
   switch (fBoard[m.rf()][m.ff()].contents()) {
@@ -1088,7 +1088,7 @@ bool Board::canCaptureSquare(size_t targetRank, size_t targetFile) {
   return false;
 }
 
-void Board::disambiguate(const ChessMove &move, string *san, SANQueue &allSAN) {
+void Board::disambiguate(const ChessMove &move, std::string *san, SANQueue &allSAN) {
   if (san->length()) {
     bool conflict = false, rankConflict = false, fileConflict = false;
     for (int i = 0; i < int(allSAN.size()); ++i) {
@@ -1523,7 +1523,7 @@ int ChessCharToRank(char rank) {
 
 // appends the move to 'out'
 // The move has not yet been made on the board
-void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
+void MoveToAlgebraic(const ChessMove &move, const Board &b, std::string *out) {
   std::ostringstream o;
   List<ChessMove> allMoves;
 
@@ -1633,7 +1633,7 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
 //!&allMoves) just before this function
 //??! Still need to test what happens when the allMoves is incorrect
 void MoveToAlgebraic(const ChessMove &move, const Board &b,
-                     List<ChessMove> &allMoves, string *out) {
+                     List<ChessMove> &allMoves, std::string *out) {
   std::ostringstream o;
 
   bool conflict = false, fileConflict = false,
@@ -2222,7 +2222,7 @@ int main() {
 
     ChessMove move;
     if (AlgebraicToMove(buf, b, &move)) {
-      string SAN;
+      std::string SAN;
       b.moveToAlgebraic(&SAN, move);
 
       b.processMove(move);

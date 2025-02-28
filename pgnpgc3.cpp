@@ -15,10 +15,10 @@
 StopWatch gTimer[10];
 
 #include <assert.h>
+#include <climits> // UCHAR_MAX
 #include <cstring>
 #include <ctype.h>
 #include <filesystem>
-#include <limits.h> // UCHAR_MAX
 #include <sstream>
 namespace fs = std::filesystem;
 
@@ -26,7 +26,6 @@ namespace fs = std::filesystem;
 #include "chess_2.h"
 #include "joshdefs.h"
 #include "list5.h"
-#include "pqueue_2.h"
 
 using pgcByteT = int8_t;        // one byte (two's complement)
 using pgcWordT = int16_t;       // two bytes (two's complement)
@@ -141,7 +140,7 @@ void SkipChar(const char **c, char unwanted[]) {
 }
 
 struct PGNTag {
-  string name, value;
+    std::string name, value;
 };
 
 // adds all of the tags to the list, and returns where the tags ended.
@@ -185,7 +184,7 @@ const char *ParsePGNTags(const char *pgn, List<PGNTag> *tags) {
 }
 
 // returns the element, or -1 if it didn't find it
-int FindElement(const string &target, SANQueue &source) {
+int FindElement(const std::string &target, SANQueue &source) {
   for (unsigned i = 0; i < source.size(); ++i)
     if (source[i].san() == target)
       return i;
@@ -228,13 +227,13 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
   } reasonToBreak = other;
   E_gameTermination gameResult = none;
 
-  List<string> moves;
+  List<std::string> moves;
   bool processMoveSequence = true;
   pgcByteT NAGVal;
-  string escapeToken;
+  std::string escapeToken;
   while (processMoveSequence) // move sequence
   {
-    string token;
+    std::string token;
     SkipWhite(&pgn);
     if (*pgn == '[') {
       gameResult = unknown;
@@ -346,8 +345,8 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
     } else if (token[0] == '%') // escape sequence
     {
       escapeToken =
-          string(&token.c_str()[1]); //??! an escape sequence can have null, but
-                                     //this function uses char*, so it can't
+          &token.c_str()[1]; //??! an escape sequence can have null, but
+                             // this function uses char*, so it can't
       while (*pgn != '\n' && *pgn != '\0') {
         escapeToken += *pgn;
         pgn++;
@@ -383,7 +382,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
       /*/ debugBegin
       //
                       SANMoves.gotoFirst();
-                      string debug;
+                      std::string debug;
                       int debugI = 0;
                       cout << "\n";
                       while(SANMoves.next(&debug))
@@ -399,7 +398,7 @@ E_gameTermination ProcessMoveSequence(Board &game, const char *&pgn,
         game.display();
         return illegalMove; // move is not legal
       }
-      string san;
+      std::string san;
 
       game.moveToAlgebraic(&san, cm, allMoves);
       gTimer[3].stop();
@@ -641,9 +640,7 @@ int PgnToPgcDataBase(std::istream &pgn, std::ostream &pgc) {
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
-#include <iomanip> // stream manipulators (e.g. setw() )
 #include <iostream>
-#include <limits> // INT_MAX
 
 // non-standard (may not be portable to some operating systems)
 
