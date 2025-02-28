@@ -1,3 +1,4 @@
+// vim: spell :
 #include <cstddef>
 #include <cstring>
 #include <iostream>
@@ -43,7 +44,7 @@ char ChessSquare::pieceToChar() const {
     return ' ';
   default:
     assert(0);
-    return 'x'; // notReached
+    return 'x'; // not Reached
   }
 }
 
@@ -81,7 +82,7 @@ ChessSquare LetterToSquare(char SAN_FEN_Letter) {
 }
 
 // FEN notation of initial position
-// position : to move : castleing : (50*2) - plys till draw : current move
+// position : to move : castling : (50*2) - plies till draw : current move
 // number "RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr w KQkq - 0 1"
 
 Board::Board()
@@ -173,7 +174,7 @@ bool Board::processFEN(const string &FENPosition) {
         if (fBoard[i][j].isEmpty()) // would have caught that already
           return false;
       }
-      if (!numEmpty) // seperate from the other if so that when numEmpty becomes
+      if (!numEmpty) // separate from the other if so that when numEmpty becomes
                      // zero again this will be executed
       {
 
@@ -257,7 +258,7 @@ bool Board::processFEN(const string &FENPosition) {
   if (curToken[index] == '-') {
     fEnPassant = noCaptures;
   } else {
-    //??! assumes that char values run continuously from a - z
+    //??! Assumes that char values run continuously from a - z
     if (!isalpha(curToken[index]))
       return false;
 
@@ -269,7 +270,7 @@ bool Board::processFEN(const string &FENPosition) {
   }
   // ignore the rank info
 
-  // Record 5 -- plys since last pawn move or capture
+  // Record 5 -- plies since last pawn move or capture
   curToken = strtok(0, " ");
   index = 0;
   if (!curToken || index >= strlen(curToken))
@@ -304,15 +305,15 @@ void Board::display() {
   std::cout << "\nStatus:\t " << fStatus;
   std::cout << "\nEnPassant:\t " << fEnPassant;
   std::cout << "\nMove: " << fMoveNumber;
-  std::cout << "\nPlys Since:\t " << fPlysSince;
+  std::cout << "\nPlies Since:\t " << fPlysSince;
 }
 
 // true on success
-//??!! no checking is done?
+//??!! No checking is done?
 bool Board::move(const ChessMove &move) {
   // can't move an empty square or capture your own piece
-  // illegal enpassant
-  // general legality -- check etc.. ?? how much checking should be done here?
+  // illegal en-passant
+  // general legality -- check etc.. ?? How much checking should be done here?
 
   if (fBoard[move.rf()][move.ff()].isEmpty() ||
       IsSameColor(fBoard[move.rf()][move.ff()], fBoard[move.rt()][move.ft()]) ||
@@ -376,7 +377,7 @@ bool Board::move(const ChessMove &move) {
                                        : ChessSquare(ChessSquare::blackKing);
     break;
   default:
-    break; // doNothing
+    break; // do Nothing
   }
 
   return true;
@@ -424,7 +425,7 @@ bool Board::processMove(const ChessMove &m, List<ChessMove> &allMoves) {
       castle &= ~blackKS;
     break;
   default:
-    break; // doNothing
+    break; // do Nothing
   }
 
   // isLegal()
@@ -484,7 +485,7 @@ inline bool Board::algebraicToMove(ChessMove *move, const char SAN[]) {
   genLegalMoves(&allMoves);
   return algebraicToMove(move, SAN, allMoves);
 }
-//??! change all these functions to const
+//??! Change all these functions to const
 // inline
 bool Board::algebraicToMove(ChessMove *move, const char SAN[],
                             List<ChessMove> &allMoves) {
@@ -492,13 +493,12 @@ bool Board::algebraicToMove(ChessMove *move, const char SAN[],
   return AlgebraicToMove(SAN, *this, allMoves, move);
 }
 
-void Board::genLegalMoveSet(List<ChessMove> *allMoves,
-                            SANQueue *allSAN) {
+void Board::genLegalMoveSet(List<ChessMove> *allMoves, SANQueue *allSAN) {
   assert(allMoves);
   assert(allSAN);
-  // should combine genLegalMoves and moveToAlgebraic effeciently
+  // should combine genLegalMoves and moveToAlgebraic efficiently
   genLegalMoves(allMoves, allSAN);
-  // disabiguateAllMoves
+  // disambiguateAllMoves
   disambiguateMoves(*allSAN);
 }
 
@@ -511,8 +511,7 @@ inline void Board::addMove(int rf, int ff, int rt, int ft,
   allSAN->add(ChessMoveSAN(rf, ff, rt, ft, sanValue, type));
 }
 
-void Board::genLegalMoves(List<ChessMove> *allMoves,
-                          SANQueue *allSAN) {
+void Board::genLegalMoves(List<ChessMove> *allMoves, SANQueue *allSAN) {
   assert(allMoves);
   assert(allSAN);
   genPseudoLegalMoves(allMoves, allSAN);
@@ -556,8 +555,8 @@ void Board::genLegalMoves(List<ChessMove> *allMoves,
                         allSAN);
             }
           }
-          break; //!!? break is possible here, unless two kings on rank and one
-                 //!can castle (some form of wild?)
+          break; //!!? Break is possible here, unless two kings on rank and one
+                 //! can castle (some form of wild?)
         }
       }
 
@@ -607,8 +606,7 @@ void Board::genLegalMoves(List<ChessMove> *allMoves,
   gTimer[9].stop();
 }
 
-void Board::removeIllegalMoves(List<ChessMove> *allMoves,
-                               SANQueue *allSAN) {
+void Board::removeIllegalMoves(List<ChessMove> *allMoves, SANQueue *allSAN) {
   bool isFound = false;
   ChessSquare::E_contents target =
       toMove() == white ? ChessSquare::whiteKing : ChessSquare::blackKing;
@@ -697,7 +695,7 @@ void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
       o << "=K";
       break;
     default:
-      break; // doNothing
+      break; // do Nothing
     }
     break;
 
@@ -715,7 +713,6 @@ void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
       }
     }
 
-    // fallThrough
     [[fallthrough]];
   default:
     o << (char)toupper(fBoard[m.rf()][m.ff()].pieceToChar());
@@ -730,8 +727,7 @@ void Board::moveToAlgebraicAmbiguity(string *out, const ChessMove &m) {
   out->append(o.str());
 }
 
-void Board::genPseudoLegalMoves(List<ChessMove> *moves,
-                                SANQueue *allSAN) {
+void Board::genPseudoLegalMoves(List<ChessMove> *moves, SANQueue *allSAN) {
   assert(moves);
   assert(allSAN);
 
@@ -756,8 +752,8 @@ void Board::genPseudoLegalMoves(List<ChessMove> *moves,
             addMove(rf, ff, rf + 1, ff, ChessMove::promoKnight, moves, allSAN);
             addMove(rf, ff, rf + 1, ff, ChessMove::promoRook, moves, allSAN);
             //							addMove(rf, ff,
-            //rf + 1, ff, ChessMove::promoKing, moves, allSAN); // some wild
-            //variants
+            // rf + 1, ff, ChessMove::promoKing, moves, allSAN); // some wild
+            // variants
 
           } else {
             addMove(rf, ff, rf + 1, ff, ChessMove::normal, moves, allSAN);
@@ -780,7 +776,7 @@ void Board::genPseudoLegalMoves(List<ChessMove> *moves,
               addMove(rf, ff, rf + 1, ff + s, ChessMove::promoRook, moves,
                       allSAN);
               //								addMove(rf,
-              //ff, rf + 1, ff + s, ChessMove::promoKing, moves, allSAN);
+              // ff, rf + 1, ff + s, ChessMove::promoKing, moves, allSAN);
             } else {
               addMove(rf, ff, rf + 1, ff + s, ChessMove::normal, moves, allSAN);
             }
@@ -808,7 +804,7 @@ void Board::genPseudoLegalMoves(List<ChessMove> *moves,
             addMove(rf, ff, rf - 1, ff, ChessMove::promoBishop, moves, allSAN);
             addMove(rf, ff, rf - 1, ff, ChessMove::promoRook, moves, allSAN);
             //							addMove(rf, ff,
-            //rf - 1, ff, ChessMove::promoKing, moves, allSAN);
+            // rf - 1, ff, ChessMove::promoKing, moves, allSAN);
           } else {
             addMove(rf, ff, rf - 1, ff, ChessMove::normal, moves, allSAN);
           }
@@ -831,7 +827,7 @@ void Board::genPseudoLegalMoves(List<ChessMove> *moves,
               addMove(rf, ff, rf - 1, ff + s, ChessMove::promoRook, moves,
                       allSAN);
               //								addMove(rf,
-              //ff, rf - 1, ff + s, ChessMove::promoKing, moves, allSAN);
+              // ff, rf - 1, ff + s, ChessMove::promoKing, moves, allSAN);
             } else {
               addMove(rf, ff, rf - 1, ff + s, ChessMove::normal, moves, allSAN);
             }
@@ -948,7 +944,7 @@ void Board::genPseudoLegalMoves(List<ChessMove> *moves,
         break;
 
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
     }
 }
@@ -1079,7 +1075,7 @@ bool Board::canCaptureSquare(size_t targetRank, size_t targetFile) {
         break;
 
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
     }
 
@@ -1358,14 +1354,14 @@ void GenPseudoLegalMoves(const Board &b, List<ChessMove> *moves) {
         break;
 
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
     }
 }
 
 // returns if the person to move is in check
 bool IsInCheck(Board b) {
-  // scan a1 - a8, b1 - b8..... h8, only test first king found
+  // scan a1,a2,...,h8 only test first king found
   bool isFound = false;
   ChessSquare::E_contents target = b.toMove() == Board::white
                                        ? ChessSquare::whiteKing
@@ -1443,7 +1439,7 @@ void GenLegalMoves(const Board &b, List<ChessMove> *moves) {
           }
         }
       }
-      //!!? break is possible here, unless two kings on rank and one can castle
+      //!!? Break is possible here, unless two kings on rank and one can castle
       //!(some form of wild?)
     }
 
@@ -1508,22 +1504,22 @@ E_gameCheckStatus CheckStatus(const Board &b, List<ChessMove> &allMoves) {
 }
 
 char ChessFileToChar(unsigned file) {
-  return file + 'a'; //?!! assumes letters run continuously
+  return file + 'a'; //?!! Assumes letters run continuously
 }
 char ChessRankToChar(unsigned rank) {
-  return rank + '1'; //?!! assumes numbers run continuously
+  return rank + '1'; //?!! Assumes numbers run continuously
 }
 int ChessCharToFile(char file) {
-  return file - 'a'; //?!! assumes letters run continuously
+  return file - 'a'; //?!! Assumes letters run continuously
 }
 int ChessCharToRank(char rank) {
-  return rank - '1'; //?!! assumes numbers run continuously
+  return rank - '1'; //?!! Assumes numbers run continuously
 }
 
 // appends the move to 'out'
 // The move has not yet been made on the board
 void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
-    std::ostringstream o;
+  std::ostringstream o;
   List<ChessMove> allMoves;
 
   bool conflict = false, fileConflict = false,
@@ -1560,8 +1556,8 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
     case ChessMove::promoKing:
       o << "=K";
       break;
-      default: // do nothing
-        break;
+    default: // do nothing
+      break;
     }
     break;
 
@@ -1580,7 +1576,6 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
       }
     }
 
-    // fallThrough
     [[fallthrough]];
   default:
     o << (char)toupper(b(move.rf(), move.ff()).pieceToChar());
@@ -1631,10 +1626,10 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b, string *out) {
 // significant in some cases)
 //!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
 //!&allMoves) just before this function
-//??! still need to test what happens when the allMoves is incorrect
+//??! Still need to test what happens when the allMoves is incorrect
 void MoveToAlgebraic(const ChessMove &move, const Board &b,
                      List<ChessMove> &allMoves, string *out) {
-    std::ostringstream o;
+  std::ostringstream o;
 
   bool conflict = false, fileConflict = false,
        rankConflict =
@@ -1688,7 +1683,6 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b,
       }
     }
 
-    // fallThrough
     [[fallthrough]];
   default:
     o << (char)toupper(b(move.rf(), move.ff()).pieceToChar());
@@ -1729,7 +1723,7 @@ void MoveToAlgebraic(const ChessMove &move, const Board &b,
     o << ChessFileToChar(move.ft()) << ChessRankToChar(move.rt());
 
     // Check or Checkmate
-    //??! removed for speed, and compatibility with Board::genLegalMoveSet()
+    //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
   }
   out->append(o.str());
 }
@@ -1746,7 +1740,7 @@ unsigned NumCharsInStr(const char *str, int c) {
   return i;
 }
 
-//!?? if a move is ambiguous it will just pick the first move it finds.
+//!?? If a move is ambiguous it will just pick the first move it finds.
 // returns true if the moved could be parsed, false otherwise
 // performs a lot of cleanup, so the move can be messy (calls
 // RemoveChars("x+=#!? "))
@@ -1761,7 +1755,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
   size_t i;
 
   san = RemoveWhiteSpace(san);
-  // remove unnessessary chars
+  // remove unnecessary chars
   san = RemoveChars(san, "+#x=!? ");
 
   if (!strlen(san))
@@ -1833,7 +1827,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
   if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
     // is it a promotion?
     if (IsPromoChar(
-            san[strlen(san) - 1])) //!!? lower case b is not counted as Bishop
+            san[strlen(san) - 1])) //!!? Lower case b is not counted as Bishop
     {
       switch (toupper(san[strlen(san) - 1])) {
       case 'N':
@@ -1852,19 +1846,19 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
         move->type() = ChessMove::promoKing;
         break;
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
       //			cout << "\n promotion";
       san[strlen(san) - 1] = '\0';
       if (!strlen(san))
         return false;
     }
-    // possibilities: f, f4, ef (e.p.), ef4, exf4 (e.p.), e3f4 (e.p.), e3xf4
-    // (e.p.) all x's have been removed, e.p. is taken care of
+    // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
+    // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
     if (!strlen(san))
       return false;
 
-    if (strlen(san) == 1) // f
+    if (strlen(san) == 1) // "f"
     {
       for (i = 0; i < allMoves.size(); ++i) {
         if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
@@ -1885,7 +1879,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
           return true;
         }
 
-    } else if (strlen(san) == 2) // ef
+    } else if (strlen(san) == 2) // 'ef'
     {
       assert(!isdigit(san[1]));
       for (i = 0; i < allMoves.size(); ++i)
@@ -1896,7 +1890,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
           *move = allMoves[i];
           return true;
         }
-    } else if (strlen(san) == 3) // ef4
+    } else if (strlen(san) == 3) // 'ef4'
     {
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
@@ -1907,7 +1901,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
           *move = allMoves[i];
           return true;
         }
-    } else if (strlen(san) == 4) // e3f4
+    } else if (strlen(san) == 4) // 'e3f4'
     {
       for (i = 0; i < allMoves.size(); ++i)
         if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
@@ -1935,14 +1929,14 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
         switch (sanLength) {
         case 3:
           *move = allMoves[i];
-          return true; // Nf3
+          return true; // 'Nf3'
         case 4:
           if (isdigit(san[1]) &&
-              allMoves[i].rf() == ChessCharToRank(san[1])) // N1f3
+              allMoves[i].rf() == ChessCharToRank(san[1])) // 'N1f3'
           {
             *move = allMoves[i];
             return true;
-          } else if (allMoves[i].ff() == ChessCharToFile(san[1])) // Ngf3
+          } else if (allMoves[i].ff() == ChessCharToFile(san[1])) // 'Ngf3'
           {
             *move = allMoves[i];
             return true;
@@ -1950,7 +1944,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b, ChessMove *move) {
           break;
         case 5:
           if (allMoves[i].ff() == ChessCharToFile(san[1]) &&
-              allMoves[i].rf() == ChessCharToFile(san[2])) // Ng1f3
+              allMoves[i].rf() == ChessCharToFile(san[2])) // 'Ng1f3'
           {
             *move = allMoves[i];
             return true;
@@ -1977,7 +1971,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
   size_t i;
 
   san = RemoveWhiteSpace(san);
-  // remove unnessessary chars
+  // remove unnecessary chars
   san = RemoveChars(san, "+#x=!? ");
 
   if (!strlen(san))
@@ -2046,7 +2040,7 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
   if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
     // is it a promotion?
     if (IsPromoChar(
-            san[strlen(san) - 1])) //!!? lower case b is not counted as Bishop
+            san[strlen(san) - 1])) //!!? Lower case b is not counted as Bishop
     {
       switch (toupper(san[strlen(san) - 1])) {
       case 'N':
@@ -2065,14 +2059,14 @@ bool AlgebraicToMove(const char constSAN[], const Board &b,
         move->type() = ChessMove::promoKing;
         break;
       default:
-        assert(0); // notReached
+        assert(0); // not Reached
       }
       san[strlen(san) - 1] = '\0';
       if (!strlen(san))
         return false;
     }
-    // possibilities: f, f4, ef (e.p.), ef4, exf4 (e.p.), e3f4 (e.p.), e3xf4
-    // (e.p.) all x's have been removed, e.p. is taken care of
+    // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
+    // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
     if (!strlen(san))
       return false;
 
@@ -2192,11 +2186,11 @@ int main() {
   /*
   char c[] = {" exf4 "};
 
-  cout << "\n" << strcspn("eggxggf4", "xft ");
+  std::cout << "\n" << strcspn("eggxggf4", "xft ");
 
   RemoveChars(c, " ");
 
-  cout << "\n '" << c << "' ";
+  std::cout << "\n '" << c << "' ";
   */
   char buf[20];
   Board b;
@@ -2216,7 +2210,7 @@ int main() {
 
     cout << "\nEnter Move (or end): ";
     cin.getline(buf, sizeof(buf) / sizeof(buf[0]));
-    cout << "BUF: '" << buf << "' ";
+    cout << "buffer: '" << buf << "' ";
 
     if (!strcmp(buf, "end"))
       break;
