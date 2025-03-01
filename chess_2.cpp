@@ -239,11 +239,13 @@ bool Board::move(ChessMove const& move) {
                 ? ChessSquare(ChessSquare::whiteBishop)
                 : ChessSquare(ChessSquare::blackBishop);
             break;
+#if ALLOW_KING_PROMOTION
         case ChessMove::promoKing:
             fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
                 ? ChessSquare(ChessSquare::whiteKing)
                 : ChessSquare(ChessSquare::blackKing);
             break;
+#endif
         default: break; // do Nothing
     }
 
@@ -327,6 +329,10 @@ void Board::genLegalMoveSet(MoveList& allMoves, SANQueue& allSAN) {
 }
 
 inline void Board::addMove(ChessMove mv, MoveList& moves, SANQueue& allSAN) {
+#if !ALLOW_KING_PROMOTION
+    if (mv.type() == ChessMove::promoKing)
+        return;
+#endif
     std::string sanValue;
     moves.add(mv);
     moveToAlgebraicAmbiguity(sanValue, mv);
@@ -489,7 +495,9 @@ void Board::moveToAlgebraicAmbiguity(std::string& out, ChessMove const& m) {
                 case ChessMove::promoKnight: o << "=N"; break;
                 case ChessMove::promoRook: o << "=R"; break;
                 case ChessMove::promoQueen: o << "=Q"; break;
+#if ALLOW_KING_PROMOTION
                 case ChessMove::promoKing: o << "=K"; break;
+#endif
                 default: break; // do Nothing
             }
             break;
@@ -542,9 +550,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                             addMove({rf, ff, rf + 1, ff, ChessMove::promoBishop}, moves, allSAN);
                             addMove({rf, ff, rf + 1, ff, ChessMove::promoKnight}, moves, allSAN);
                             addMove({rf, ff, rf + 1, ff, ChessMove::promoRook}, moves, allSAN);
-                            // addMove({rf, ff, rf + 1, ff, ChessMove::promoKing}, moves, allSAN); // some
-                            // wild variants
-
+                            addMove({rf, ff, rf + 1, ff, ChessMove::promoKing}, moves, allSAN);
                         } else {
                             addMove({rf, ff, rf + 1, ff, ChessMove::normal}, moves, allSAN);
                         }
@@ -560,7 +566,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                                 addMove({rf, ff, rf + 1, ff + s, ChessMove::promoKnight}, moves, allSAN);
                                 addMove({rf, ff, rf + 1, ff + s, ChessMove::promoBishop}, moves, allSAN);
                                 addMove({rf, ff, rf + 1, ff + s, ChessMove::promoRook}, moves, allSAN);
-                                // addMove({rf, ff, rf + 1, ff + s, ChessMove::promoKing}, moves, allSAN);
+                                addMove({rf, ff, rf + 1, ff + s, ChessMove::promoKing}, moves, allSAN);
                             } else {
                                 addMove({rf, ff, rf + 1, ff + s, ChessMove::normal}, moves, allSAN);
                             }
@@ -586,7 +592,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                             addMove({rf, ff, rf - 1, ff, ChessMove::promoKnight}, moves, allSAN);
                             addMove({rf, ff, rf - 1, ff, ChessMove::promoBishop}, moves, allSAN);
                             addMove({rf, ff, rf - 1, ff, ChessMove::promoRook}, moves, allSAN);
-                            // addMove({rf, ff, rf - 1, ff, ChessMove::promoKing}, moves, allSAN);
+                            addMove({rf, ff, rf - 1, ff, ChessMove::promoKing}, moves, allSAN);
                         } else {
                             addMove({rf, ff, rf - 1, ff, ChessMove::normal}, moves, allSAN);
                         }
@@ -603,7 +609,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                                 addMove({rf, ff, rf - 1, ff + s, ChessMove::promoKnight}, moves, allSAN);
                                 addMove({rf, ff, rf - 1, ff + s, ChessMove::promoBishop}, moves, allSAN);
                                 addMove({rf, ff, rf - 1, ff + s, ChessMove::promoRook}, moves, allSAN);
-                                // addMove({rf, ff, rf - 1, ff + s, ChessMove::promoKing}, moves, allSAN);
+                                addMove({rf, ff, rf - 1, ff + s, ChessMove::promoKing}, moves, allSAN);
                             } else {
                                 addMove({rf, ff, rf - 1, ff + s, ChessMove::normal}, moves, allSAN);
                             }
@@ -926,8 +932,7 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKnight));
                             moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoBishop));
                             moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoRook));
-                            // moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKing)); // some wild
-                            // variants
+                            moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKing));
                         } else {
                             moves.add(ChessMove(rf, ff, rf + 1, ff));
                         }
@@ -943,7 +948,7 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKnight));
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoBishop));
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoRook));
-                                // moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKing)); // some
+                                moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKing));
                                 // wild variants
                             } else {
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s));
@@ -969,8 +974,7 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoKnight));
                             moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoBishop));
                             moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoRook));
-                            // moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoKing)); // some wild
-                            // variants
+                            moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoKing));
                         } else {
                             moves.add(ChessMove(rf, ff, rf - 1, ff));
                         }
@@ -987,8 +991,7 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                                 moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoKnight));
                                 moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoBishop));
                                 moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoRook));
-                                // moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoKing)); // some
-                                // wild variants
+                                moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoKing));
                             } else {
                                 moves.add(ChessMove(rf, ff, rf - 1, ff + s));
                             }
@@ -1406,7 +1409,9 @@ bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& 
                 case 'B': move.type() = ChessMove::promoBishop; break;
                 case 'R': move.type() = ChessMove::promoRook; break;
                 case 'Q': move.type() = ChessMove::promoQueen; break;
+#ifdef ALLOW_KING_PROMOTION
                 case 'K': move.type() = ChessMove::promoKing; break;
+#endif
                 default: assert(0); // not Reached
             }
             san.pop_back();

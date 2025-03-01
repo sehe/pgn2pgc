@@ -10,6 +10,10 @@
 #include "pqueue_2.h"
 //!!? Rank and file mean row (y) and column (x) in chess
 
+#ifndef ALLOW_KING_PROMOTION
+#define ALLOW_KING_PROMOTION false
+#endif
+
 struct ChessSquare {
   public:
     enum Occupant {
