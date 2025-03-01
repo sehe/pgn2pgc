@@ -3,16 +3,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #include <array>
+#include <cassert>
 #include <string>
 #include <vector>
-#include <cassert>
 
 #include "pqueue_2.h"
 //!!? Rank and file mean row (y) and column (x) in chess
 
 struct ChessSquare {
   public:
-    enum E_contents {
+    enum Occupant {
         empty,
         whitePawn,
         whiteKnight,
@@ -27,32 +27,27 @@ struct ChessSquare {
         blackQueen,
         blackKing
     };
-    enum E_status { none, highlight };
 
-    constexpr ChessSquare(E_contents contents = empty, E_status status = none)
-        : fContents(contents), fStatus(status) {}
+    constexpr ChessSquare(Occupant contents = empty) : occ_(contents) {}
 
     constexpr bool isWhite() const {
-        return fContents == whitePawn || fContents == whiteKnight || fContents == whiteBishop ||
-            fContents == whiteRook || fContents == whiteQueen || fContents == whiteKing;
+        return occ_ == whitePawn || occ_ == whiteKnight || occ_ == whiteBishop || occ_ == whiteRook ||
+            occ_ == whiteQueen || occ_ == whiteKing;
     }
     constexpr bool isBlack() const {
-        return fContents == blackPawn || fContents == blackKnight || fContents == blackBishop ||
-            fContents == blackRook || fContents == blackQueen || fContents == blackKing;
+        return occ_ == blackPawn || occ_ == blackKnight || occ_ == blackBishop || occ_ == blackRook ||
+            occ_ == blackQueen || occ_ == blackKing;
     }
-    constexpr bool       isEmpty() const { return fContents == empty; }
-    constexpr bool       isPawn() const { return fContents == blackPawn || fContents == whitePawn; }
-    constexpr E_contents contents() const { return fContents; }
-    constexpr E_status   status() const { return fStatus; }
+    constexpr bool     isEmpty() const { return occ_ == empty; }
+    constexpr bool     isPawn() const { return occ_ == blackPawn || occ_ == whitePawn; }
+    constexpr Occupant contents() const { return occ_; }
 
-    constexpr bool operator==(E_contents rhs) const { return fContents == rhs; }
-    constexpr bool operator!=(E_contents rhs) const { return fContents != rhs; }
+    constexpr auto operator<=>(ChessSquare const& rhs) const = default;
 
     constexpr char pieceToChar();
 
   private:
-    E_contents fContents;
-    E_status   fStatus;
+    Occupant occ_;
 };
 
 inline bool IsSameColor(ChessSquare a, ChessSquare b) {
@@ -61,7 +56,7 @@ inline bool IsSameColor(ChessSquare a, ChessSquare b) {
 
 struct ChessMove {
   public:
-    enum E_type {
+    enum Type {
         normal,
         promoKnight,
         promoBishop,
@@ -76,27 +71,27 @@ struct ChessMove {
         blackCastleQS,
     };
 
-    constexpr ChessMove(int y1 = 0, int x1 = 0, int y2 = 0, int x2 = 0, enum E_type kind = normal)
-        : fRF(y1), fFF(x1), fRT(y2), fFT(x2), fType(kind) {}
+    constexpr ChessMove(int y1 = 0, int x1 = 0, int y2 = 0, int x2 = 0, enum Type kind = normal)
+        : rf_(y1), ff_(x1), rt_(y2), ft_(x2), type_(kind) {}
 
     constexpr auto operator<=>(ChessMove const& rhs) const = default;
     constexpr bool isPromo() const {
-        return fType == promoKnight || fType == promoBishop || fType == promoRook || fType == promoQueen ||
-            fType == promoKing;
+        return type_ == promoKnight || type_ == promoBishop || type_ == promoRook || type_ == promoQueen ||
+            type_ == promoKing;
     }
-    constexpr bool          isEnPassant() const { return fType == whiteEnPassant || fType == blackEnPassant; }
-    constexpr int           rf() const { return fRF; }
-    constexpr int           ff() const { return fFF; }
-    constexpr int           rt() const { return fRT; }
-    constexpr int           ft() const { return fFT; }
-    constexpr E_type const& type() const { return fType; }
-    constexpr E_type&       type() { return fType; }
+    constexpr bool        isEnPassant() const { return type_ == whiteEnPassant || type_ == blackEnPassant; }
+    constexpr int         rf() const { return rf_; }
+    constexpr int         ff() const { return ff_; }
+    constexpr int         rt() const { return rt_; }
+    constexpr int         ft() const { return ft_; }
+    constexpr Type const& type() const { return type_; }
+    constexpr Type&       type() { return type_; }
 
   private:
     // row from, file from, row to, file to //!?? Keep signed int so that can
     // use in expressions that depend on signed values
-    int    fRF, fFF, fRT, fFT;
-    E_type fType;
+    int  rf_, ff_, rt_, ft_;
+    Type type_;
 };
 
 struct MoveList : std::vector<ChessMove> {
@@ -202,7 +197,7 @@ class Board {
     void moveToAlgebraicAmbiguity(std::string&, ChessMove const&);
     void removeIllegalMoves(MoveList&, SANQueue&);
 
-    static constexpr size_t gRanks = 8, gFiles = 8;
+    static constexpr int gRanks = 8, gFiles = 8;
     using Rank   = std::array<ChessSquare, gFiles>;
     using Fields = std::array<Rank, gRanks>;
     Fields fBoard{};
