@@ -115,8 +115,8 @@ class ChessMoveSAN {
     bool operator==(ChessMoveSAN const& b) const { return SAN_ == b.SAN_; }
 
   private:
-    ChessMove const move_{};
-    std::string     SAN_{};
+    ChessMove   move_{};
+    std::string SAN_{};
 };
 
 // char ChessFileToChar(unsigned file); // 0 = a, 1 = b...

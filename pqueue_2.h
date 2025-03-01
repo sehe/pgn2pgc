@@ -13,7 +13,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // HEADER FILES
-#include <set>
+#include <algorithm>
+#include <cassert>
+#include <utility>
+#include <vector>
 
 // DATA TYPES
 
@@ -21,62 +24,35 @@
 //
 // PriorityQueue Class (template)
 //
-template <class T, typename C = std::multiset<T>> class PriorityQueue {
-    C                 impl_;
-    C::const_iterator current_ = impl_.begin();
+template <class T, typename C = std::vector<T>> class PriorityQueue {
+    C    impl_;
+    bool sorted_ = false;
+
+    void sort() {
+        if (!std::exchange(sorted_, true))
+            std::stable_sort(impl_.begin(), impl_.end());
+    }
 
   public:
-    PriorityQueue() = default;
-    PriorityQueue(PriorityQueue const& rhs) : impl_(rhs.impl_) {
-        for (auto l = impl_.begin(), r = rhs.impl_.begin(); l != impl_.end(); ++l, ++r) {
-            if (r == rhs.current_) {
-                current_ = l;
-                return;
-            }
-        }
-
-        current_ = impl_.begin();
-    }
-
-    PriorityQueue& operator=(PriorityQueue rhs) {
-        std::swap(impl_, rhs.impl_);
-        std::swap(current_, rhs.current_);
-        return *this;
-    }
-
     // add an object onto the end of the list.
     void add(T addValue) {
-        impl_.insert(std::move(addValue));
-    }
-
-    // sets object so that next() will return the first object in the list
-    void gotoFirst() { current_ = impl_.begin(); }
-
-    // assigns the given memory location with the value of the next item
-    // in the list.
-    // returns false if at the end of the list true otherwise
-    bool next(T* p) {
-        if (current_ == impl_.end())
-            return false;
-        *p = *current_++;
-        return true;
+        sorted_ = false;
+        impl_.push_back(std::move(addValue));
     }
 
     // returns if the list is empty or not
     bool   isEmpty() const { return impl_.empty(); }
     size_t size() const { return impl_.size(); }
 
-    T& operator[](size_t index) {
-        assert(index < this->size());
-        auto it = impl_.begin();
-        std::advance(it, index);
-        return const_cast<T&>(*it); // SEHE REVIEW safe cast?
-    }
+    T& operator[](size_t index) { return sort(), impl_.at(index); }
 
     void remove(size_t index) {
-        assert(index < this->size());
-        auto it = impl_.begin();
-        std::advance(it, index);
-        impl_.erase(it);
+        sort();
+        assert(index < impl_.size());
+        impl_.erase(impl_.begin() + index);
     }
+
+    auto        begin() { return sort(), impl_.begin(); }
+    auto        end() { return impl_.end(); }
+    auto const& front() const { return sort(), impl_.front(); }
 };

@@ -18,36 +18,28 @@ int main() {
     }
 
     std::cout << "First dump: " << std::endl;
-    int val = -2;
     std::cout << std::endl << std::endl;
-    while (l.next(&val)) {
+    for(auto& val : l)
         std::cout << "\t" << val;
-    }
 
-    PriorityQueue<int> l2(l);
-
-    l.gotoFirst();
-    assert(!l2.next(&val));
+    PriorityQueue<int> l2 = l;
 
     std::cout << std::endl << std::endl;
     std::cout << "Second dump: " << std::endl;
-    while (l.next(&val)) {
+    for(auto& val : l)
         std::cout << "\t" << val;
-    }
 
     l.add(-1);
 
-    l.gotoFirst();
-    l2.gotoFirst();
-    l.next(&val);
-    std::cout << "\nFirst L: " << val;
-
-    l2.next(&val);
-    std::cout << "\nFirst L2: " << val;
+    auto it  = l.begin();
+    auto it2 = l2.begin();
+    std::cout << "\nFirst L: " << *it++;
+    std::cout << "\nFirst L2: " << *it2++;
 
     l2 = l;
-    l2.next(&val);
-    std::cout << "\nNext L2: " << val;
-    l.next(&val);
-    std::cout << "\nNext L: " << val;
+    it2 = l2.begin(); // it2 would be invalidated by the assignment
+    // the old behavior of mirroring the fCurrent from `l` to `l2` is not
+    // replicated here, as there is not use case for it.
+
+    std::cout << "\nNext L: " << *it++;
 }
