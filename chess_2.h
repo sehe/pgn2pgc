@@ -4,8 +4,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include <array>
 #include <string>
+#include <vector>
+#include <cassert>
 
-#include "list5.h"
 #include "pqueue_2.h"
 //!!? Rank and file mean row (y) and column (x) in chess
 
@@ -98,36 +99,12 @@ struct ChessMove {
     E_type fType;
 };
 
-template <> class List<ChessMove> {
-  public:
-    void add(ChessMove v) { impl_.push_back(std::move(v)); }
-    void remove(size_t index) {
-        assert(index < impl_.size());
-        auto it = impl_.begin();
-        std::advance(it, index);
-        impl_.erase(it);
-    }
-    void makeEmpty() { impl_.clear(); }
-
-    ChessMove& operator[](size_t index) {
-        assert(index < impl_.size());
-        auto it = impl_.begin();
-        std::advance(it, index);
-        return *it;
-    }
-
-    ChessMove const& operator[](size_t index) const {
-        assert(index < impl_.size());
-        auto it = impl_.begin();
-        std::advance(it, index);
-        return *it;
-    }
-
-    size_t size() const { return impl_.size(); }
-
-  private:
-    std::list<ChessMove> impl_;
+struct MoveList : std::vector<ChessMove> {
+    void add(ChessMove v) { push_back(std::move(v)); }
+    void remove(size_t index) { erase(begin() + index); }
+    void makeEmpty() { clear(); }
 };
+
 class ChessMoveSAN {
   public:
     ChessMoveSAN(ChessMove mv = {}, std::string SAN = {}) : move_(std::move(mv)), SAN_(std::move(SAN)) {}
@@ -138,15 +115,15 @@ class ChessMoveSAN {
     bool operator==(ChessMoveSAN const& b) const { return SAN_ == b.SAN_; }
 
   private:
-    ChessMove   const move_{};
-    std::string SAN_{};
+    ChessMove const move_{};
+    std::string     SAN_{};
 };
 
-//char ChessFileToChar(unsigned file); // 0 = a, 1 = b...
-//char ChessRankToChar(unsigned rank); // 0 = '1', 1 = '1'...
-//int  ChessCharToFile(char file);     // 'a' = 0
-//int  ChessCharToRank(char rank);     // '1' = 0
-//ChessSquare LetterToSquare(char SAN_FEN_Letter); // 'R' == rook 'K' == king..
+// char ChessFileToChar(unsigned file); // 0 = a, 1 = b...
+// char ChessRankToChar(unsigned rank); // 0 = '1', 1 = '1'...
+// int  ChessCharToFile(char file);     // 'a' = 0
+// int  ChessCharToRank(char rank);     // '1' = 0
+// ChessSquare LetterToSquare(char SAN_FEN_Letter); // 'R' == rook 'K' == king..
 
 enum E_gameCheckStatus { notInCheck, inCheck, inCheckmate, inStalemate };
 
@@ -179,7 +156,7 @@ class Board {
     bool move(ChessMove const&);          // private, need to remove calls to external functions
     bool processMove(ChessMove const& m); // make move and change status of game,
                                           // colorToMove etc
-    bool processMove(ChessMove const& m, List<ChessMove>&);
+    bool processMove(ChessMove const& m, MoveList&);
     bool isWhiteToMove() const { return toMove_ == white; }
     bool isBlackToMove() const { return toMove_ == black; }
 
@@ -192,14 +169,14 @@ class Board {
     int ranks() const { return gRanks; }
     int files() const { return gFiles; }
 
-    void genLegalMoves(List<ChessMove>&);
+    void genLegalMoves(MoveList&);
     // adds the moves to the list and the SAN representations to the queue
-    void genLegalMoveSet(List<ChessMove>&, SANQueue&);
+    void genLegalMoveSet(MoveList&, SANQueue&);
 
     // no ambiguities, move is not checked for legality
-    void moveToAlgebraic(std::string&, ChessMove const&, List<ChessMove> const&);
+    void moveToAlgebraic(std::string&, ChessMove const&, MoveList const&);
 
-    bool algebraicToMove(ChessMove&, std::string_view, List<ChessMove> const&);
+    bool algebraicToMove(ChessMove&, std::string_view, MoveList const&);
 
     bool canCaptureSquare(int r, int f);
 
@@ -218,12 +195,12 @@ class Board {
   private:
     void disambiguateMoves(SANQueue&);
     void disambiguate(ChessMove const&, std::string&, SANQueue&);
-    void genPseudoLegalMoves(List<ChessMove>&);
-    void genPseudoLegalMoves(List<ChessMove>&, SANQueue&);
-    void genLegalMoves(List<ChessMove>&, SANQueue&);
-    void addMove(ChessMove, List<ChessMove>& moves, SANQueue& allSAN);
+    void genPseudoLegalMoves(MoveList&);
+    void genPseudoLegalMoves(MoveList&, SANQueue&);
+    void genLegalMoves(MoveList&, SANQueue&);
+    void addMove(ChessMove, MoveList& moves, SANQueue& allSAN);
     void moveToAlgebraicAmbiguity(std::string&, ChessMove const&);
-    void removeIllegalMoves(List<ChessMove>&, SANQueue&);
+    void removeIllegalMoves(MoveList&, SANQueue&);
 
     static constexpr size_t gRanks = 8, gFiles = 8;
     using Rank   = std::array<ChessSquare, gFiles>;
@@ -240,7 +217,7 @@ class Board {
 
 //-----------------------------------------------------------------------------
 // pseudoLegal: not castling, and not worrying about being left in check
-void GenPseudoLegalMoves(Board const& b, List<ChessMove>& moves);
+void GenPseudoLegalMoves(Board const& b, MoveList& moves);
 
 // returns if the person to move is in check
 bool IsInCheck(Board b);
@@ -252,17 +229,16 @@ bool WillBeInCheck(Board b, ChessMove const& move);
 bool WillGiveCheck(Board b, ChessMove const& move);
 
 // all legal moves are added to the list, including castleling
-void GenLegalMoves(Board const& b, List<ChessMove>& moves);
+void GenLegalMoves(Board const& b, MoveList& moves);
 
 // what is the status of the position on the board?
-E_gameCheckStatus CheckStatus(Board const& b, List<ChessMove>&);
+E_gameCheckStatus CheckStatus(Board const& b, MoveList&);
 
 // in case you already know all of the chessMoves to save processing time (very
 // significant in some cases)
 //!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
 //!&allMoves) just before this function
-void MoveToAlgebraic(ChessMove const& move, Board const& b, List<ChessMove> const& allMoves,
-                     std::string& out);
+void MoveToAlgebraic(ChessMove const& move, Board const& b, MoveList const& allMoves, std::string& out);
 
 // return false if 'b', as this can mean a file
 inline bool IsPromoChar(char c) {
@@ -272,4 +248,4 @@ inline bool IsPromoChar(char c) {
 // converts the SAN string to a ChessMove
 bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move);
 
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove> const& allMoves, ChessMove& move);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& allMoves, ChessMove& move);

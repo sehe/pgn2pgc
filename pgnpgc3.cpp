@@ -10,7 +10,6 @@ namespace fs = std::filesystem;
 
 // .pgn to .pgc
 #include "chess_2.h"
-#include "list5.h"
 
 // from https://stackoverflow.com/a/8197886/85371
 #include <bit>
@@ -43,7 +42,7 @@ static inline void gToLittleEndian(int16_t w, std::array<char, 2>& c) {
 // always the same) and change to byte sequence (e.g. int-2 year int-2 month
 // int-1 day)
 
-#include "list5.h"
+#include <cassert>
 #include <cstring>
 #include <iostream>
 
@@ -313,8 +312,8 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
 
         gTimer[4].start();
         for (size_t i = 0; auto& mv : moves) {
-            SANQueue        SANMoves;
-            List<ChessMove> allMoves;
+            SANQueue SANMoves;
+            MoveList allMoves;
             gTimer[2].start();
             game.genLegalMoveSet(allMoves, SANMoves); // 57%
             gTimer[2].stop();

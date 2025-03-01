@@ -5,7 +5,6 @@
 #include <ranges>
 
 #include "chess_2.h"
-#include "list5.h"
 #include "stpwatch.h"
 #include "strparse.h"
 
@@ -13,8 +12,8 @@ extern StopWatch gTimer[10];
 
 static constexpr inline char ChessFileToChar(unsigned file) { return file + 'a'; }
 static constexpr inline char ChessRankToChar(unsigned rank) { return rank + '1'; }
-static constexpr inline int ChessCharToFile(char file) { return file - 'a'; }
-static constexpr inline int ChessCharToRank(char rank) { return rank - '1'; }
+static constexpr inline int  ChessCharToFile(char file) { return file - 'a'; }
+static constexpr inline int  ChessCharToRank(char rank) { return rank - '1'; }
 
 // in case you already know all of the chessMoves to save processing time (very
 constexpr inline char ChessSquare::pieceToChar() {
@@ -137,7 +136,7 @@ bool Board::processFEN(std::string_view FEN) {
                     return false; // the string is empty
 
                 {
-                    auto n= std::stoul(std::string(token));
+                    auto n = std::stoul(std::string(token));
                     if (n > std::numeric_limits<decltype(pliesSince_)>::max())
                         return false;
                     pliesSince_ = n;
@@ -251,15 +250,15 @@ bool Board::move(ChessMove const& move) {
     return true;
 }
 
-inline void Board::genLegalMoves(List<ChessMove>& moves) { GenLegalMoves(*this, moves); }
+inline void Board::genLegalMoves(MoveList& moves) { GenLegalMoves(*this, moves); }
 
 bool Board::processMove(ChessMove const& m) {
-    List<ChessMove> allMoves;
+    MoveList allMoves;
     genLegalMoves(allMoves);
     return processMove(m, allMoves);
 }
 
-bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
+bool Board::processMove(ChessMove const& m, MoveList& allMoves) {
     int      enPassant = fBoard[m.rf()][m.ff()].isPawn() && abs(m.rt() - m.rf()) > 1 ? m.ft() : noCaptures;
     unsigned plysSince =
         !fBoard[m.rf()][m.ff()].isPawn() && fBoard[m.rt()][m.ft()].isEmpty() ? pliesSince_ + 1 : 0;
@@ -292,7 +291,7 @@ bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
         castle_     = castle;
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wenum-compare" // FIXME
+#pragma GCC diagnostic ignored "-Wenum-compare"      // FIXME
         if (status_ == noStatus || status_ == check) // otherwise end of game
 #pragma GCC diagnostic pop
         {
@@ -310,31 +309,31 @@ bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
 }
 
 // inline
-void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, List<ChessMove> const& allMoves) {
+void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, MoveList const& allMoves) {
     MoveToAlgebraic(move, *this, allMoves, SAN);
 }
 
 //??! Change all these functions to const
 // inline
-bool Board::algebraicToMove(ChessMove& move, std::string_view SAN, List<ChessMove> const& allMoves) {
+bool Board::algebraicToMove(ChessMove& move, std::string_view SAN, MoveList const& allMoves) {
     return AlgebraicToMove(SAN, *this, allMoves, move);
 }
 
-void Board::genLegalMoveSet(List<ChessMove>& allMoves, SANQueue& allSAN) {
+void Board::genLegalMoveSet(MoveList& allMoves, SANQueue& allSAN) {
     // should combine genLegalMoves and moveToAlgebraic efficiently
     genLegalMoves(allMoves, allSAN);
     // disambiguateAllMoves
     disambiguateMoves(allSAN);
 }
 
-inline void Board::addMove(ChessMove mv, List<ChessMove>& moves, SANQueue& allSAN) {
+inline void Board::addMove(ChessMove mv, MoveList& moves, SANQueue& allSAN) {
     std::string sanValue;
     moves.add(mv);
     moveToAlgebraicAmbiguity(sanValue, mv);
     allSAN.add(ChessMoveSAN(mv, sanValue));
 }
 
-void Board::genLegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
+void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
     genPseudoLegalMoves(allMoves, allSAN);
     int i;
 
@@ -417,7 +416,7 @@ void Board::genLegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
     gTimer[9].stop();
 }
 
-void Board::removeIllegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
+void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
     bool                    isFound = false;
     ChessSquare::E_contents target  = toMove() == white ? ChessSquare::whiteKing : ChessSquare::blackKing;
 
@@ -522,7 +521,7 @@ void Board::moveToAlgebraicAmbiguity(std::string& out, ChessMove const& m) {
     out += o.str();
 }
 
-void Board::genPseudoLegalMoves(List<ChessMove>& moves, SANQueue& allSAN) {
+void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
     int i, j, d, s, fs, rs, rt, ft;
     if (toMove() == endOfGame)
         return;
@@ -572,7 +571,8 @@ void Board::genPseudoLegalMoves(List<ChessMove>& moves, SANQueue& allSAN) {
                                 fBoard[ranks() - 4][ff + s].contents() == ChessSquare::blackPawn &&
                                 fBoard[ranks() - 3][ff + s].isEmpty()) {
 
-                                addMove({rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant}, moves, allSAN);
+                                addMove({rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant}, moves,
+                                        allSAN);
                             }
                         }
                     }
@@ -906,7 +906,7 @@ void Board::disambiguateMoves(SANQueue& allSAN) {
 //
 // pseudoLegal: not castling, and not worrying about being left in check
 //
-void GenPseudoLegalMoves(Board const& b, List<ChessMove>& moves) {
+void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
     int i, j, d, s, fs, rs, rt, ft;
     if (b.toMove() == Board::endOfGame)
         return;
@@ -1148,7 +1148,7 @@ bool WillGiveCheck(Board b, ChessMove const& move) {
     return IsInCheck(b);
 }
 
-void GenLegalMoves(Board const& b, List<ChessMove>& moves) {
+void GenLegalMoves(Board const& b, MoveList& moves) {
     GenPseudoLegalMoves(b, moves);
     int i;
 
@@ -1232,7 +1232,7 @@ void GenLegalMoves(Board const& b, List<ChessMove>& moves) {
     }
 }
 
-E_gameCheckStatus CheckStatus(Board const& b, List<ChessMove>& allMoves) {
+E_gameCheckStatus CheckStatus(Board const& b, MoveList& allMoves) {
     if (allMoves.size())
         return IsInCheck(b) ? inCheck : notInCheck;
     else
@@ -1243,7 +1243,7 @@ E_gameCheckStatus CheckStatus(Board const& b, List<ChessMove>& allMoves) {
 //!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
 //!&allMoves) just before this function
 //??! Still need to test what happens when the allMoves is incorrect
-void MoveToAlgebraic(ChessMove const& move, Board const& b, List<ChessMove> const& allMoves, std::string& out) {
+void MoveToAlgebraic(ChessMove const& move, Board const& b, MoveList const& allMoves, std::string& out) {
     std::ostringstream o;
 
     bool conflict = false, fileConflict = false,
@@ -1352,7 +1352,7 @@ bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move)
     if (san.empty())
         return false;
 
-    List<ChessMove> allMoves;
+    MoveList allMoves;
     GenLegalMoves(b, allMoves);
 
     // get piece type, look for
@@ -1513,7 +1513,7 @@ bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move)
     return false; // no matching legal move was found
 }
 
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove> const& allMoves, ChessMove& move) {
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& allMoves, ChessMove& move) {
     std::string san(constSAN);
 
     RemoveWhiteSpace(san);
@@ -1704,8 +1704,8 @@ int main() {
     Board b;
 
     while (cin.good()) {
-        Queue           set;
-        List<ChessMove> moves;
+        Queue    set;
+        MoveList moves;
 
         b.display();
         b.genLegalMoveSet(&moves, &set);
