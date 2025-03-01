@@ -2,9 +2,9 @@
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+#include <ranges>
 
 #include "chess_2.h"
-#include "joshdefs.h"
 #include "list5.h"
 #include "stpwatch.h"
 #include "strparse.h"
@@ -64,134 +64,92 @@ Board::Board()
     processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
-bool Board::processFEN(std::string const& FENPosition) {
-    char* const      FEN = new char[FENPosition.length() + 1];
-    AdoptArray<char> adopter(FEN); // so that if return prematurely resource will
-                                   // be released by destructor
+bool Board::processFEN(std::string_view FEN) {
+    auto split = [](auto sv, char delim) {
+        return std::views::split(sv, delim) |
+            std::views::transform([](auto&& r) { return std::string_view(r.begin(), r.end()); });
+    };
+    int RECORD = 0;
+    for (auto token : split(FEN, ' ')) {
+        switch (++RECORD) {
+            case 1: // board position
+                for (int i = ranks() - 1; auto rank : split(token, '/')) {
+                    for (int j = 0; auto ch : rank) {
+                        if (isdigit(ch))
+                            for (auto n = ch - '0'; n--;)
+                                fBoard.at(i).at(j++) = ChessSquare(ChessSquare::empty);
+                        else
+                            fBoard.at(i).at(j++) = LetterToSquare(ch);
+                    }
+                    --i;
+                }
 
-    strcpy(FEN, FENPosition.c_str());
-
-    char* curToken = strtok(FEN, " ");
-    // RECORD 1 -- board position
-    size_t index = 0, numEmpty = 0;
-
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    if (isdigit(curToken[0])) {
-        char numEmptyStr[2] = {curToken[0], '\0'};
-        numEmpty            = atoi(numEmptyStr);
-    }
-
-    // set up board position
-    int i;
-    for (i = ranks() - 1; i >= 0; --i) {
-        for (size_t j = 0; j < files(); ++j) {
-            if (numEmpty) {
-                fBoard[i][j] = ChessSquare(ChessSquare::empty);
-                --numEmpty;
-
-            } else {
-                fBoard[i][j] = LetterToSquare(curToken[index]);
-                if (fBoard[i][j].isEmpty()) // would have caught that already
+                break;
+            case 2: // to move
+                if (token == "w" || token == "W")
+                    toMove_ = white;
+                else if (token == "b" || token == "B")
+                    toMove_ = black;
+                else
                     return false;
-            }
-            if (!numEmpty) // separate from the other if so that when numEmpty becomes
-                           // zero again this will be executed
-            {
-                ++index;
-                if (index >= strlen(curToken)) {
-                    if (i != 0 && j != files() - 1) {
-                        return false; // the string is too short
-                    }
-                } else {
-                    if (curToken[index] == '/') {
-                        ++index;
-                        if (index >= strlen(curToken))
-                            return false; // the string is too short
-                    }
+                break;
+            case 3: // castling
+                castle_ = noCastle;
+                for (auto ch : token) {
+                    switch (ch) {
+                        case 'K': castle_ |= whiteKS; break;
+                        case 'Q': castle_ |= whiteQS; break;
+                        case 'k': castle_ |= blackKS; break;
+                        case 'q': castle_ |= blackQS; break;
+                        case '-': castle_ = noCastle; break;
 
-                    if (isdigit(curToken[index])) {
-                        char numEmptyStr[2] = {curToken[index], '\0'};
-                        numEmpty            = atoi(numEmptyStr);
+                        default: return false;
                     }
                 }
-            }
+                break;
+            case 4: // en-passant
+                if (token.empty())
+                    return false;
+
+                if (token == "-") {
+                    enPassant_ = noCaptures;
+                } else {
+                    if (!isalpha(token.front()))
+                        return false;
+
+                    enPassant_ = tolower(token.front()) - 'a';
+                    assert(enPassant_ > 0);
+
+                    if (enPassant_ >= int(gFiles))
+                        return false;
+                }
+                // ignore the rank info
+
+                break;
+            case 5: // plies since last capture or pawn move
+                if (token.empty())
+                    return false; // the string is empty
+
+                {
+                    auto n= std::stoul(std::string(token));
+                    if (n > std::numeric_limits<decltype(pliesSince_)>::max())
+                        return false;
+                    pliesSince_ = n;
+                }
+                break;
+            case 6: // current move number (starts at 1)
+                if (token.empty())
+                    return false; // the string is empty
+                {
+                    auto n = std::stoul(std::string(token));
+                    if (n > std::numeric_limits<decltype(moveNumber_)>::max())
+                        return false;
+                    moveNumber_ = n;
+                }
+                break;
         }
     }
-
-    // RECORD 2 -- to move
-    curToken = strtok(0, " ");
-    index    = 0;
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    switch (tolower(curToken[index])) // specs say only lower case char, but no
-                                      // need to be picky here
-    {
-        case 'w': toMove_ = white; break;
-        case 'b': toMove_ = black; break;
-
-        default: // cout << "here 2";
-            return false;
-    }
-
-    // Record 3 -- castling
-    curToken = strtok(0, " ");
-    index    = 0;
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    castle_ = noCastle;
-    do {
-        switch (curToken[index]) {
-            case 'K': castle_ |= whiteKS; break;
-            case 'Q': castle_ |= whiteQS; break;
-            case 'k': castle_ |= blackKS; break;
-            case 'q': castle_ |= blackQS; break;
-            case '-': castle_ = noCastle; break;
-
-            default: return false;
-        }
-    } while (curToken[++index] != '\0');
-
-    // Record 4 -- en-passant
-    curToken = strtok(0, " ");
-    index    = 0;
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    if (curToken[index] == '-') {
-        enPassant_ = noCaptures;
-    } else {
-        //??! Assumes that char values run continuously from a - z
-        if (!isalpha(curToken[index]))
-            return false;
-
-        enPassant_ = tolower(curToken[index]) - 'a';
-        assert(enPassant_ > 0);
-
-        if (enPassant_ >= int(gFiles))
-            return false;
-    }
-    // ignore the rank info
-
-    // Record 5 -- plies since last pawn move or capture
-    curToken = strtok(0, " ");
-    index    = 0;
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    pliesSince_ = atoi(curToken);
-
-    // Record 6 -- current move number (starts at 1)
-    curToken = strtok(0, " ");
-    index    = 0;
-    if (!curToken || index >= strlen(curToken))
-        return false; // the string is empty
-
-    moveNumber_ = atoi(curToken);
-    if (moveNumber_ < 1)
+    if (RECORD != 6)
         return false;
 
     return true;

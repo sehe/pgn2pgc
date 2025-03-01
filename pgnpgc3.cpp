@@ -10,7 +10,6 @@ namespace fs = std::filesystem;
 
 // .pgn to .pgc
 #include "chess_2.h"
-#include "joshdefs.h"
 #include "list5.h"
 
 using pgcByteT       = int8_t;  // one byte (two's complement)
@@ -19,6 +18,7 @@ using pgcDoubleWordT = int32_t; // four bytes (two's complement)
 
 // from https://stackoverflow.com/a/8197886/85371
 #include <bit>
+#include <climits>
 template <std::integral T> constexpr bool is_little_endian() {
     for (unsigned bit = 0; bit != sizeof(T) * CHAR_BIT; ++bit) {
         unsigned char data[sizeof(T)] = {};
@@ -474,10 +474,11 @@ E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream
 
 // returns the number of games processed successfully
 int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
-    size_t const     kLargestGame = 0x4000; // too large will impede performance due to memmove
-    char* const      gameBuffer   = new char[kLargestGame + 1];
-    AdoptArray<char> gameAdopter(gameBuffer);
-    char*            gameBufferCurrent = gameBuffer;
+    size_t constexpr kLargestGame = 0x4000; // too large will impede performance due to memmove
+    thread_local std::array<char, kLargestGame + 1> gameStorage;
+
+    char* const gameBuffer        = gameStorage.data();
+    char*       gameBufferCurrent = gameBuffer;
 
     unsigned gamesProcessed = 0;
 

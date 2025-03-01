@@ -138,7 +138,7 @@ class Board {
   public:
     Board();
 
-    bool processFEN(std::string const& FENPosition); // true if valid position, false otherwise
+    bool processFEN(std::string_view FEN); // true if valid position, false otherwise
 
     enum E_toMove { white, black, endOfGame };
     enum E_status { noStatus, checkmate, check, stalemate };
