@@ -18,3 +18,8 @@ add_executable(pgn2pgc pgnpgc3.cpp
 )
 
 add_executable(test_pqueue pqueue_2.cpp)
+add_executable(test_chess2 chess_2.cpp
+    stpwatch.cpp
+    strparse.cpp
+)
+target_compile_definitions(test_chess2 PRIVATE TEST)

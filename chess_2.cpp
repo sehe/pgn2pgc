@@ -1679,15 +1679,13 @@ bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& 
     return false; // no matching legal move was found
 }
 
-//-----------------------------------------------------------------------------
-// Test Test Test Test Test Test Test Test Test Test Test Test Test Test Test
-// #define TEST
 #ifdef TEST
-    #undef TEST
 
 char const gFENBeginNormalGame[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-    #include <stdlib.h>
+#include <iostream>
+
+StopWatch gTimer[10];
 
 int main() {
     // NormalChessGame g1;
@@ -1703,36 +1701,34 @@ int main() {
     char  buf[20];
     Board b;
 
-    while (cin.good()) {
-        Queue    set;
+    while (std::cin.good()) {
+        SANQueue set;
         MoveList moves;
 
         b.display();
-        b.genLegalMoveSet(&moves, &set);
-        cout << "\n";
-        ChessMoveSAN san;
+        b.genLegalMoveSet(moves, set);
+        std::cout << "\n";
 
-        set.gotoFirst();
-        while (set.next(&san))
-            cout << san.san() << "\t";
+        for (auto& mv : set)
+            std::cout << mv.SAN() << "\t";
 
-        cout << "\nEnter Move (or end): ";
-        cin.getline(buf, sizeof(buf) / sizeof(buf[0]));
-        cout << "buffer: '" << buf << "' ";
+        std::cout << "\nEnter Move (or end): ";
+        std::cin.getline(buf, sizeof(buf) / sizeof(buf[0]));
+        std::cout << "buffer: '" << buf << "' ";
 
         if (!strcmp(buf, "end"))
             break;
 
         ChessMove move;
-        if (AlgebraicToMove(buf, b, &move)) {
+        if (AlgebraicToMove(buf, b, move)) {
             std::string SAN;
-            b.moveToAlgebraic(&SAN, move);
+            MoveToAlgebraic(move, b, moves, SAN);
 
             b.processMove(move);
 
-            cout << "\n Moved: '" << SAN.c_str() << "' ";
+            std::cout << "\n Moved: '" << SAN.c_str() << "' ";
         } else {
-            cout << "\n Move is not legal.";
+            std::cout << "\n Move is not legal.";
         }
     }
 
