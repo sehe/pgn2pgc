@@ -292,11 +292,8 @@ bool Board::processMove(ChessMove const& m, MoveList& allMoves) {
         pliesSince_ = plysSince;
         castle_     = castle;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wenum-compare"      // FIXME
-        if (status_ == noStatus || status_ == check) // otherwise end of game
-#pragma GCC diagnostic pop
-        {
+        if (status_ == E_gameCheckStatus::notInCheck ||
+            status_ == E_gameCheckStatus::inCheck) { // otherwise end of game
             switchMove();
             if (toMove_ == white) {
                 ++moveNumber_;
@@ -333,10 +330,8 @@ inline void Board::addMove(ChessMove mv, MoveList& moves, SANQueue& allSAN) {
     if (mv.type() == ChessMove::promoKing)
         return;
 #endif
-    std::string sanValue;
     moves.add(mv);
-    moveToAlgebraicAmbiguity(sanValue, mv);
-    allSAN.add(ChessMoveSAN(mv, sanValue));
+    allSAN.add({mv, moveToAlgebraicAmbiguity(mv)});
 }
 
 void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
@@ -344,10 +339,7 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
     int i;
 
     // castling moves
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wenum-compare" // FIXME
-    if (status_ == noStatus) {
-#pragma GCC diagnostic pop
+    if (status_ == notInCheck) {
         if (isWhiteToMove() && ((getCastle() & whiteKS) || (getCastle() & whiteQS))) {
             // search for king on first rank
             for (i = 0; i < files(); ++i) {
@@ -477,7 +469,7 @@ void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
 
 // doesn't worry about any ambiguities, nor does it indicate check
 // or checkmate status (which don't alter sort order anyway)
-void Board::moveToAlgebraicAmbiguity(std::string& out, ChessMove const& m) {
+std::string Board::moveToAlgebraicAmbiguity(ChessMove const& m) {
     std::ostringstream o;
 
     switch (fBoard[m.rf()][m.ff()].contents()) {
@@ -526,7 +518,7 @@ void Board::moveToAlgebraicAmbiguity(std::string& out, ChessMove const& m) {
             // destination square
             o << ChessFileToChar(m.ft()) << ChessRankToChar(m.rt());
     }
-    out += o.str();
+    return o.str();
 }
 
 void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {

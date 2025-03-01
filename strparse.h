@@ -3,8 +3,6 @@
 //	StringParse.cpp
 //
 // small functions to help parse strings
-//
-// SEHE: FIXME remove unsafe C-style string functions
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <string>

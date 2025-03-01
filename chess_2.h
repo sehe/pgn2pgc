@@ -198,7 +198,7 @@ class Board {
     void genPseudoLegalMoves(MoveList&, SANQueue&);
     void genLegalMoves(MoveList&, SANQueue&);
     void addMove(ChessMove, MoveList& moves, SANQueue& allSAN);
-    void moveToAlgebraicAmbiguity(std::string&, ChessMove const&);
+    std::string moveToAlgebraicAmbiguity(ChessMove const&);
     void removeIllegalMoves(MoveList&, SANQueue&);
 
     static constexpr int gRanks = 8, gFiles = 8;
