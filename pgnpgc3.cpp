@@ -88,7 +88,6 @@ struct PGNTag {
 // tag names are converted to upper case
 char const* ParsePGNTags(char const* pgn, std::vector<PGNTag>& tags) {
     assert(pgn);
-    assert(tags);
 
     char const kPGNTagBegin[]      = "[";
     char const kPGNTagEnd[]        = "]";

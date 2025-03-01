@@ -11,7 +11,13 @@
 
 extern StopWatch gTimer[10];
 
-char ChessSquare::pieceToChar() const {
+static constexpr inline char ChessFileToChar(unsigned file) { return file + 'a'; }
+static constexpr inline char ChessRankToChar(unsigned rank) { return rank + '1'; }
+static constexpr inline int ChessCharToFile(char file) { return file - 'a'; }
+static constexpr inline int ChessCharToRank(char rank) { return rank - '1'; }
+
+// in case you already know all of the chessMoves to save processing time (very
+constexpr inline char ChessSquare::pieceToChar() {
     switch (fContents) {
         case whitePawn: return 'P';
         case blackPawn: return 'p';
@@ -31,7 +37,7 @@ char ChessSquare::pieceToChar() const {
 }
 
 //-----------------------------------------------------------------------------
-ChessSquare LetterToSquare(char SAN_FEN_Letter) {
+static constexpr inline ChessSquare LetterToSquare(char SAN_FEN_Letter) {
     switch (SAN_FEN_Letter) {
         case 'P': return ChessSquare(ChessSquare::whitePawn);
         case 'p': return ChessSquare(ChessSquare::blackPawn);
@@ -303,22 +309,11 @@ bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
     }
 }
 
-inline void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move) {
-    List<ChessMove> allMoves;
-    genLegalMoves(allMoves);
-    moveToAlgebraic(SAN, move, allMoves);
-}
-
 // inline
-void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, List<ChessMove>& allMoves) {
+void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, List<ChessMove> const& allMoves) {
     MoveToAlgebraic(move, *this, allMoves, SAN);
 }
 
-inline bool Board::algebraicToMove(ChessMove& move, std::string_view SAN) {
-    List<ChessMove> allMoves;
-    genLegalMoves(allMoves);
-    return algebraicToMove(move, SAN, allMoves);
-}
 //??! Change all these functions to const
 // inline
 bool Board::algebraicToMove(ChessMove& move, std::string_view SAN, List<ChessMove> const& allMoves) {
@@ -728,7 +723,7 @@ void Board::genPseudoLegalMoves(List<ChessMove>& moves, SANQueue& allSAN) {
 }
 
 // all moves that capture the square, square can be same color as person to move
-bool Board::canCaptureSquare(size_t targetRank, size_t targetFile) {
+bool Board::canCaptureSquare(int targetRank, int targetFile) {
     assert(targetRank < ranks());
     assert(targetFile < files());
 
@@ -1244,117 +1239,11 @@ E_gameCheckStatus CheckStatus(Board const& b, List<ChessMove>& allMoves) {
         return IsInCheck(b) ? inCheckmate : inStalemate;
 }
 
-char ChessFileToChar(unsigned file) {
-    return file + 'a'; //?!! Assumes letters run continuously
-}
-char ChessRankToChar(unsigned rank) {
-    return rank + '1'; //?!! Assumes numbers run continuously
-}
-int ChessCharToFile(char file) {
-    return file - 'a'; //?!! Assumes letters run continuously
-}
-int ChessCharToRank(char rank) {
-    return rank - '1'; //?!! Assumes numbers run continuously
-}
-
-// appends the move to 'out'
-// The move has not yet been made on the board
-void MoveToAlgebraic(ChessMove const& move, Board const& b, std::string& out) {
-    std::ostringstream o;
-    List<ChessMove>    allMoves;
-
-    bool conflict = false, fileConflict = false, rankConflict = false;
-    // use the file in case of a conflict, and rank if no file
-    // conflict, and both if necessary (e.g. there are three
-    // pieces accessing the same square)
-    //  cout << "here: " << b(move.rf, move.ff()).contents();
-    switch (b(move.rf(), move.ff()).contents()) {
-        case ChessSquare::whitePawn:
-        case ChessSquare::blackPawn:
-
-            o << ChessFileToChar(move.ff());
-            // cout << " here " << o.str();
-            if (move.ff() != move.ft()) {
-                o << 'x' << ChessFileToChar(move.ft())
-                  << ChessRankToChar(move.rt()); // Capture; use style "exd5"
-            } else {
-                o << ChessRankToChar(move.rt()); // Non-capture; use style "e5"
-            }
-            switch (move.type()) {
-                case ChessMove::promoBishop: o << "=B"; break;
-                case ChessMove::promoKnight: o << "=N"; break;
-                case ChessMove::promoRook: o << "=R"; break;
-                case ChessMove::promoQueen: o << "=Q"; break;
-                case ChessMove::promoKing: o << "=K"; break;
-                default: // do nothing
-                    break;
-            }
-            break;
-
-        case ChessSquare::whiteKing:
-        case ChessSquare::blackKing:
-            // castling
-            if (move.rf() == move.rt() &&
-                move.rf() == int((b(move.rf(), move.ff()).isWhite()) ? 0 : b.ranks() - 1)) {
-                if ((signed)move.ff() - (signed)move.ft() < -1) {
-                    o << "O-O";
-                    break;
-                } else if ((signed)move.ff() - (signed)move.ft() > 1) {
-                    o << "O-O-O";
-                    break;
-                }
-            }
-
-            [[fallthrough]];
-        default:
-            o << (char)toupper(b(move.rf(), move.ff()).pieceToChar());
-            // generate all legal moves
-            GenLegalMoves(b, allMoves);
-
-            // see if any same pieces are going to the square
-
-            for (int i = 0; i < int(allMoves.size()); ++i) {
-                if (allMoves[i] != move &&                                            // not the same move
-                    allMoves[i].rt() == move.rt() && allMoves[i].ft() == move.ft() && // the same 'to' square
-                    b(move.rf(), move.ff()).contents() ==
-                        b(allMoves[i].rf(), allMoves[i].ff()).contents()) // same type of piece
-                {
-                    conflict = true;
-                    if (move.rf() == allMoves[i].rf())
-                        rankConflict = true;
-                    else if (move.ff() == allMoves[i].ff())
-                        fileConflict = true;
-                }
-            }
-            // resolve if the piece is on same file of rank (if there are three same
-            // pieces then use file and rank)
-            if (conflict && !rankConflict && !fileConflict) {
-                o << ChessFileToChar(move.ff());
-            } else if (conflict && !rankConflict) {
-                o << ChessRankToChar(move.rf());
-            } else if (fileConflict && rankConflict) {
-                o << ChessFileToChar(move.ff()) << ChessRankToChar(move.rf());
-            } else if (rankConflict) {
-                o << ChessFileToChar(move.ff());
-            }
-
-            // determine if it's a capture
-            if (!b(move.rt(), move.ft()).isEmpty()) {
-                o << 'x';
-            }
-
-            // destination square
-            o << ChessFileToChar(move.ft()) << ChessRankToChar(move.rt());
-    }
-    out += o.str();
-}
-
-// in case you already know all of the chessMoves to save processing time (very
 // significant in some cases)
 //!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
 //!&allMoves) just before this function
 //??! Still need to test what happens when the allMoves is incorrect
-void MoveToAlgebraic(ChessMove const& move, Board const& b, List<ChessMove>& allMoves, std::string& out) {
+void MoveToAlgebraic(ChessMove const& move, Board const& b, List<ChessMove> const& allMoves, std::string& out) {
     std::ostringstream o;
 
     bool conflict = false, fileConflict = false,
