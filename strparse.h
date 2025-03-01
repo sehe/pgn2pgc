@@ -7,9 +7,7 @@
 // SEHE: FIXME remove unsafe C-style string functions
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <string>
 // remove trailing and leading whitespace
-char* RemoveWhiteSpace(char c[]);
-
-// remove all of the characters that are in remove[] from c[], return the new
-// c[]
-char* RemoveChars(char c[], char const remove[]);
+void RemoveWhiteSpace(std::string& s);
+void RemoveChars(std::string& s, std::string_view remove);

@@ -161,6 +161,7 @@ enum E_gameTermination {
     blackWin,
     draw
 }; //?!! Use later to determine if original STR Result is correct
+
 E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostream& pgc) {
     static Board gPreviousGamePos; // used in case their is something other than a
                                    // move sequence before a RAV
@@ -170,135 +171,143 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     enum E_reasonToEndSequence { RAVBegin, RAVEnd, NAG, escape, other } reasonToBreak = other;
     E_gameTermination gameResult                                                      = none;
 
-    List<std::string> moves;
-    bool              processMoveSequence = true;
-    pgcByteT          NAGVal;
-    std::string       escapeToken;
-    while (processMoveSequence) // move sequence
-    {
-        std::string token;
-        SkipWhite(pgn);
-        if (*pgn == '[') {
-            gameResult = unknown;
-            // processMoveSequence = false; // redundant here
-            break;
-        }
-        // get the next token
-        while (!isspace(*pgn) && *pgn != '\0') {
-            if (token.length() && *pgn == ')')
-                break;
+    pgcByteT    NAGVal;
+    std::string escapeToken;
 
-            if ((*pgn == '!') || (*pgn == '?')) // NAG
-            {
-                if (token.length()) {
-                    break;
-                } else {
-                    while (!isspace(*pgn) && *pgn != '\0' && (*pgn == '!' || *pgn == '?')) {
-                        token += *pgn;
-                        ++pgn;
+    auto const moves = [&] {
+        std::vector<std::string> moves;
+        std::string              token;
+        for (bool processMoveSequence = true; processMoveSequence; token.clear()) // move sequence
+        {
+            SkipWhite(pgn);
+            if (*pgn == '[') {
+                gameResult = unknown;
+                // processMoveSequence = false; // redundant here
+                break;
+            }
+
+            auto const token = [&] {
+                std::string token;
+                // get the next token
+                while (!isspace(*pgn) && *pgn != '\0') {
+                    if (token.length() && *pgn == ')')
+                        break;
+
+                    if ((*pgn == '!') || (*pgn == '?')) // NAG
+                    {
+                        if (token.length()) {
+                            break;
+                        } else {
+                            while (!isspace(*pgn) && *pgn != '\0' && (*pgn == '!' || *pgn == '?')) {
+                                token += *pgn;
+                                ++pgn;
+                            }
+                            break;
+                        }
                     }
-                    break;
+                    token += *pgn;
+                    //                cout << "\nCurToken: " << token;
+                    ++pgn;
+                    assert(token.length());
+                    if (token == "(" || token == ")" || token[token.length() - 1] == '.')
+                        break;
                 }
-            }
-            token += *pgn;
-            //                cout << "\nCurToken: " << token;
-            ++pgn;
-            assert(token.length());
-            if (token == "(" || token == ")" || token[token.length() - 1] == '.')
-                break;
-        }
+                return token;
+            }();
 
-        if (token.empty()) // no more tokens to process
-        {
-            processMoveSequence = false;
-        } else if (isdigit(token[0])) // move# or end-of-game (1-0 1-0 1/2-1/2)
-        {
-            if (token == "1-0") {
-                gameResult = whiteWin; // there can only be one game termination per
-                                       // game, cannot be in a RAV
+            if (token.empty()) // no more tokens to process
+            {
                 processMoveSequence = false;
-            } else if (token == "0-1") {
-                gameResult          = blackWin;
+            } else if (isdigit(token[0])) // move# or end-of-game (1-0 1-0 1/2-1/2)
+            {
+                if (token == "1-0") {
+                    gameResult = whiteWin; // there can only be one game termination per
+                                           // game, cannot be in a RAV
+                    processMoveSequence = false;
+                } else if (token == "0-1") {
+                    gameResult          = blackWin;
+                    processMoveSequence = false;
+                } else if (token == "1/2-1/2" || token == "1/2") {
+                    gameResult          = draw;
+                    processMoveSequence = false;
+                }
+            } else if (token == "*") {
+                gameResult          = unknown;
                 processMoveSequence = false;
-            } else if (token == "1/2-1/2" || token == "1/2") {
-                gameResult          = draw;
+            } else if (isalpha(token[0])) // SAN move
+            {
+                moves.push_back(std::move(token));
+            } else if (token == "!") // NAVVal values from pgn standard sec. 10
+            {
+                reasonToBreak       = NAG;
+                NAGVal              = 1;
                 processMoveSequence = false;
+            } else if (token == "?") {
+                reasonToBreak       = NAG;
+                NAGVal              = 2;
+                processMoveSequence = false;
+            } else if (token == "!!") {
+                reasonToBreak       = NAG;
+                NAGVal              = 3;
+                processMoveSequence = false;
+            } else if (token == "??") {
+                reasonToBreak       = NAG;
+                NAGVal              = 4;
+                processMoveSequence = false;
+            } else if (token == "!?") {
+                reasonToBreak       = NAG;
+                NAGVal              = 5;
+                processMoveSequence = false;
+            } else if (token == "?!") {
+                reasonToBreak       = NAG;
+                NAGVal              = 6;
+                processMoveSequence = false;
+            } else if (token[0] == '{') // multi-line comment
+            {
+                // .pgc doesn't allow for comments yet..
+                SkipTo(pgn, "}");
+            } else if (token[0] == ';') // single-line comment
+            {
+                SkipTo(pgn, "\n");
+            } else if (token[0] == '(') // RAV
+            {
+                ++gRAVLevels;
+                reasonToBreak       = RAVBegin;
+                processMoveSequence = false;
+            } else if (token[0] == ')') // RAV
+            {
+                --gRAVLevels;
+                reasonToBreak       = RAVEnd;
+                processMoveSequence = false;
+            } else if (token[0] == '$') // NAG
+            {
+                reasonToBreak       = NAG;
+                NAGVal              = atoi(&token.c_str()[1]);
+                processMoveSequence = false;
+            } else if (token[0] == '.') // black to move (...)
+            {
+                // redundant
+            } else if (token[0] == '[') // begin another game (without end-of-game
+                                        // marker) // taken care of up top
+            {
+                assert(0);
+            } else if (token[0] == '%') // escape sequence
+            {
+                escapeToken = &token.c_str()[1]; //??! An escape sequence can have null, but
+                                                 // this function uses char*, so it can't
+                while (*pgn != '\n' && *pgn != '\0') {
+                    escapeToken += *pgn;
+                    pgn++;
+                }
+                reasonToBreak       = escape;
+                processMoveSequence = false;
+            } else // error, everything in a valid PGN game should be taken care of
+            {
+                throw parsingError;
             }
-        } else if (token == "*") {
-            gameResult          = unknown;
-            processMoveSequence = false;
-        } else if (isalpha(token[0])) // SAN move
-        {
-            moves.add(token);
-        } else if (token == "!") // NAVVal values from pgn standard sec. 10
-        {
-            reasonToBreak       = NAG;
-            NAGVal              = 1;
-            processMoveSequence = false;
-        } else if (token == "?") {
-            reasonToBreak       = NAG;
-            NAGVal              = 2;
-            processMoveSequence = false;
-        } else if (token == "!!") {
-            reasonToBreak       = NAG;
-            NAGVal              = 3;
-            processMoveSequence = false;
-        } else if (token == "??") {
-            reasonToBreak       = NAG;
-            NAGVal              = 4;
-            processMoveSequence = false;
-        } else if (token == "!?") {
-            reasonToBreak       = NAG;
-            NAGVal              = 5;
-            processMoveSequence = false;
-        } else if (token == "?!") {
-            reasonToBreak       = NAG;
-            NAGVal              = 6;
-            processMoveSequence = false;
-        } else if (token[0] == '{') // multi-line comment
-        {
-            // .pgc doesn't allow for comments yet..
-            SkipTo(pgn, "}");
-        } else if (token[0] == ';') // single-line comment
-        {
-            SkipTo(pgn, "\n");
-        } else if (token[0] == '(') // RAV
-        {
-            ++gRAVLevels;
-            reasonToBreak       = RAVBegin;
-            processMoveSequence = false;
-        } else if (token[0] == ')') // RAV
-        {
-            --gRAVLevels;
-            reasonToBreak       = RAVEnd;
-            processMoveSequence = false;
-        } else if (token[0] == '$') // NAG
-        {
-            reasonToBreak       = NAG;
-            NAGVal              = atoi(&token.c_str()[1]);
-            processMoveSequence = false;
-        } else if (token[0] == '.') // black to move (...)
-        {
-            // redundant
-        } else if (token[0] == '[') // begin another game (without end-of-game
-                                    // marker) // taken care of up top
-        {
-            assert(0);
-        } else if (token[0] == '%') // escape sequence
-        {
-            escapeToken = &token.c_str()[1]; //??! An escape sequence can have null, but
-                                             // this function uses char*, so it can't
-            while (*pgn != '\n' && *pgn != '\0') {
-                escapeToken += *pgn;
-                pgn++;
-            }
-            reasonToBreak       = escape;
-            processMoveSequence = false;
-        } else // error, everything in a valid PGN game should be taken care of
-        {
-            return parsingError;
         }
-    }
+        return moves;
+    }(); // FIXME handle exception
 
     // Process Moves
     //!!? Only need to indicate zero moves if the game is empty and not using
@@ -313,28 +322,17 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
         }
 
         gTimer[4].start();
-        for (size_t i = 0; i < moves.size(); ++i) {
+        for (size_t i = 0; auto& mv : moves) {
             SANQueue        SANMoves;
             List<ChessMove> allMoves;
             gTimer[2].start();
             game.genLegalMoveSet(allMoves, SANMoves); // 57%
             gTimer[2].stop();
 
-            /*/ debugBegin
-            //
-                            SANMoves.gotoFirst();
-                            std::string debug;
-                            int debugI = 0;
-                            cout << "\n";
-                            while(SANMoves.next(&debug))
-                                    cout << debugI++ << " " << debug << "\t";
-                            SANMoves.gotoFirst();
-            //
-            */// debugEnd
             gTimer[3].start();
             ChessMove cm;
-            if (!game.algebraicToMove(cm, moves[i].c_str(), allMoves)) {
-                std::cout << "\nillegal move: " << moves[i].c_str();
+            if (!game.algebraicToMove(cm, mv, allMoves)) {
+                std::cout << "\nIllegal move: " << mv;
                 std::cout << "\n";
                 game.display();
                 return illegalMove; // move is not legal
@@ -345,20 +343,6 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             gTimer[3].stop();
 
             assert(FindElement(san, SANMoves) != -1);
-            /*            if(FindElement(san, SANMoves) == -1)
-                                    {
-                                            game.display();
-                                            SANMoves.gotoFirst();
-                                            ChessMoveSAN debug;
-                                            int debugI = 0;
-                            std::cout << "\n";
-                                            while(SANMoves.next(&debug))
-                            std::cout << debugI++ << " " << debug.san() << "\t";
-                                            SANMoves.gotoFirst();
-                                    }
-            */
-            //            std::cout << "\nMove: " << san << "\n";
-            //            game.display();
 
             pgc << (pgcByteT)FindElement(san, SANMoves);
 
@@ -367,8 +351,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
                     pgc << kMarkerRAVBegin;
                     Board temp = game;
                     gameResult = ProcessMoveSequence(temp, pgn, pgc);
-                } else // SEHE FIXME hanging else
-                {
+                } else {
                     // their can't be two RAV's at the same level for the same
                     // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
                     // (pgn formal syntax)
@@ -379,6 +362,8 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             gTimer[7].start();
             game.processMove(cm, allMoves);
             gTimer[7].stop();
+
+            ++i;
         }
         gTimer[4].stop();
 

@@ -169,7 +169,7 @@ bool Board::processFEN(std::string const& FENPosition) {
             return false;
 
         enPassant_ = tolower(curToken[index]) - 'a';
-        assert(fEnPassant > 0);
+        assert(enPassant_ > 0);
 
         if (enPassant_ >= int(gFiles))
             return false;
@@ -327,9 +327,8 @@ bool Board::processMove(ChessMove const& m, List<ChessMove>& allMoves) {
         pliesSince_ = plysSince;
         castle_     = castle;
 
-        // SEHE FIXME comparisons?
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wenum-compare"
+#pragma GCC diagnostic ignored "-Wenum-compare" // FIXME
         if (status_ == noStatus || status_ == check) // otherwise end of game
 #pragma GCC diagnostic pop
         {
@@ -357,14 +356,14 @@ void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, List<ChessM
     MoveToAlgebraic(move, *this, allMoves, SAN);
 }
 
-inline bool Board::algebraicToMove(ChessMove& move, char const SAN[]) {
+inline bool Board::algebraicToMove(ChessMove& move, std::string_view SAN) {
     List<ChessMove> allMoves;
     genLegalMoves(allMoves);
     return algebraicToMove(move, SAN, allMoves);
 }
 //??! Change all these functions to const
 // inline
-bool Board::algebraicToMove(ChessMove& move, char const SAN[], List<ChessMove>& allMoves) {
+bool Board::algebraicToMove(ChessMove& move, std::string_view SAN, List<ChessMove>& allMoves) {
     return AlgebraicToMove(SAN, *this, allMoves, move);
 }
 
@@ -389,9 +388,8 @@ void Board::genLegalMoves(List<ChessMove>& allMoves, SANQueue& allSAN) {
     int i;
 
     // castling moves
-    // FIXME SEHE enum comparison
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wenum-compare"
+#pragma GCC diagnostic ignored "-Wenum-compare" // FIXME
     if (status_ == noStatus) {
 #pragma GCC diagnostic pop
         if (isWhiteToMove() && ((getCastle() & whiteKS) || (getCastle() & whiteQS))) {
@@ -1492,35 +1490,26 @@ void MoveToAlgebraic(ChessMove const& move, Board const& b, List<ChessMove>& all
 }
 
 // case insensitive
-unsigned NumCharsInStr(char const* str, int c) {
-    assert(str);
-    int i = 0;
-    while (*str != '\0') {
-        if (toupper(*str) == toupper(c))
-            ++i;
-        ++str;
-    }
-    return i;
+unsigned NumCharsInStr(std::string_view str, char c) {
+    int count = 0;
+    for (auto ch : str)
+        if (toupper(ch) == toupper(c))
+            ++count;
+    return count;
 }
 
 //!?? If a move is ambiguous it will just pick the first move it finds.
 // returns true if the moved could be parsed, false otherwise
 // performs a lot of cleanup, so the move can be messy (calls
 // RemoveChars("x+=#!? "))
-bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
-    assert(constSAN);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move) {
+    std::string san(constSAN);
 
-    char*            san = new char[strlen(constSAN) + 1];
-    AdoptArray<char> sanAdopter(san);
-
-    strcpy(san, constSAN);
-    size_t i;
-
-    san = RemoveWhiteSpace(san);
+    RemoveWhiteSpace(san);
     // remove unnecessary chars
-    san = RemoveChars(san, "+#x=!? ");
+    RemoveChars(san, "+#x=!? ");
 
-    if (!strlen(san))
+    if (san.empty())
         return false;
 
     List<ChessMove> allMoves;
@@ -1541,7 +1530,7 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
         case 'O':
         case 'o': // castling
             if (NumCharsInStr(san, 'O') > 2) {
-                for (i = 0; i < allMoves.size(); ++i)
+                for (size_t i = 0; i < allMoves.size(); ++i)
                     if (allMoves[i].type() == ChessMove::whiteCastleQS ||
                         allMoves[i].type() == ChessMove::blackCastleQS) {
                         assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleQS) ||
@@ -1551,7 +1540,7 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                     }
                 return false;
             } else {
-                for (i = 0; i < allMoves.size(); ++i)
+                for (size_t i = 0; i < allMoves.size(); ++i)
                     if (allMoves[i].type() == ChessMove::whiteCastleKS ||
                         allMoves[i].type() == ChessMove::blackCastleKS) {
                         assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleKS) ||
@@ -1569,9 +1558,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
 
     if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
         // is it a promotion?
-        if (IsPromoChar(san[strlen(san) - 1])) //!!? Lower case b is not counted as Bishop
+        if (IsPromoChar(san.back())) //!!? Lower case b is not counted as Bishop
         {
-            switch (toupper(san[strlen(san) - 1])) {
+            switch (toupper(san.back())) {
                 case 'N': move.type() = ChessMove::promoKnight; break;
                 case 'B': move.type() = ChessMove::promoBishop; break;
                 case 'R': move.type() = ChessMove::promoRook; break;
@@ -1580,18 +1569,18 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                 default: assert(0); // not Reached
             }
             //			cout << "\n promotion";
-            san[strlen(san) - 1] = '\0';
-            if (!strlen(san))
+            san.pop_back();
+            if (san.empty())
                 return false;
         }
         // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
         // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
-        if (!strlen(san))
+        if (san.empty())
             return false;
 
-        if (strlen(san) == 1) // "f"
+        if (san.length() == 1) // "f"
         {
-            for (i = 0; i < allMoves.size(); ++i) {
+            for (size_t i = 0; i < allMoves.size(); ++i) {
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
                     b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
@@ -1599,9 +1588,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                     return true;
                 }
             }
-        } else if (strlen(san) == 2 && isdigit(san[1])) // f4
+        } else if (san.length() == 2 && isdigit(san[1])) // f4
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].rt() == ChessCharToRank(san[1]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
@@ -1610,10 +1599,10 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                     return true;
                 }
 
-        } else if (strlen(san) == 2) // 'ef'
+        } else if (san.length() == 2) // 'ef'
         {
             assert(!isdigit(san[1]));
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].ft() == ChessCharToFile(san[1]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
@@ -1621,9 +1610,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                     move = allMoves[i];
                     return true;
                 }
-        } else if (strlen(san) == 3) // 'ef4'
+        } else if (san.length() == 3) // 'ef4'
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].ft() == ChessCharToFile(san[1]) &&
                     allMoves[i].rt() == ChessCharToRank(san[2]) &&
@@ -1632,9 +1621,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                     move = allMoves[i];
                     return true;
                 }
-        } else if (strlen(san) == 4) // 'e3f4'
+        } else if (san.length() == 4) // 'e3f4'
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].rf() == ChessCharToRank(san[1]) &&
                     allMoves[i].ft() == ChessCharToFile(san[2]) &&
@@ -1646,13 +1635,12 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
                 }
         }
     } else {
-
-        size_t const sanLength = strlen(san); // to avoid continually calling strlen()
+        size_t const sanLength = san.length();
         if (sanLength < 3)
             return false;
         //		cout << "\n here: " << san;
 
-        for (i = 0; i < allMoves.size(); ++i)
+        for (size_t i = 0; i < allMoves.size(); ++i)
             if (allMoves[i].ft() == ChessCharToFile(san[sanLength - 2]) &&
                 allMoves[i].rt() == ChessCharToRank(san[sanLength - 1]) &&
                 b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
@@ -1685,20 +1673,14 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move) {
     return false; // no matching legal move was found
 }
 
-bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& allMoves, ChessMove& move) {
-    assert(constSAN);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove>& allMoves, ChessMove& move) {
+    std::string san(constSAN);
 
-    char*            san = new char[strlen(constSAN) + 1];
-    AdoptArray<char> sanAdopter(san);
-
-    strcpy(san, constSAN);
-    size_t i;
-
-    san = RemoveWhiteSpace(san);
+    RemoveWhiteSpace(san);
     // remove unnecessary chars
-    san = RemoveChars(san, "+#x=!? ");
+    RemoveChars(san, "+#x=!? ");
 
-    if (!strlen(san))
+    if (san.empty())
         return false;
 
     // get piece type, look for
@@ -1716,7 +1698,7 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
         case 'O':
         case 'o': // castling
             if (NumCharsInStr(san, 'O') > 2) {
-                for (i = 0; i < allMoves.size(); ++i)
+                for (size_t i = 0; i < allMoves.size(); ++i)
                     if (allMoves[i].type() == ChessMove::whiteCastleQS ||
                         allMoves[i].type() == ChessMove::blackCastleQS) {
                         assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleQS) ||
@@ -1726,7 +1708,7 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                     }
                 return false;
             } else {
-                for (i = 0; i < allMoves.size(); ++i)
+                for (size_t i = 0; i < allMoves.size(); ++i)
                     if (allMoves[i].type() == ChessMove::whiteCastleKS ||
                         allMoves[i].type() == ChessMove::blackCastleKS) {
                         assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleKS) ||
@@ -1744,9 +1726,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
 
     if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
         // is it a promotion?
-        if (IsPromoChar(san[strlen(san) - 1])) //!!? Lower case b is not counted as Bishop
+        if (IsPromoChar(san.back())) //!!? Lower case b is not counted as Bishop
         {
-            switch (toupper(san[strlen(san) - 1])) {
+            switch (toupper(san.back())) {
                 case 'N': move.type() = ChessMove::promoKnight; break;
                 case 'B': move.type() = ChessMove::promoBishop; break;
                 case 'R': move.type() = ChessMove::promoRook; break;
@@ -1754,18 +1736,18 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                 case 'K': move.type() = ChessMove::promoKing; break;
                 default: assert(0); // not Reached
             }
-            san[strlen(san) - 1] = '\0';
-            if (!strlen(san))
+            san.pop_back();
+            if (san.empty())
                 return false;
         }
         // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
         // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
-        if (!strlen(san))
+        if (san.empty())
             return false;
 
-        if (strlen(san) == 1) // f
+        if (san.length() == 1) // f
         {
-            for (i = 0; i < allMoves.size(); ++i) {
+            for (size_t i = 0; i < allMoves.size(); ++i) {
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
                     b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
@@ -1773,9 +1755,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                     return true;
                 }
             }
-        } else if (strlen(san) == 2 && isdigit(san[1])) // f4
+        } else if (san.length() == 2 && isdigit(san[1])) // f4
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].rt() == ChessCharToRank(san[1]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
@@ -1784,10 +1766,10 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                     return true;
                 }
 
-        } else if (strlen(san) == 2) // ef
+        } else if (san.length() == 2) // ef
         {
             assert(!isdigit(san[1]));
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].ft() == ChessCharToFile(san[1]) &&
                     (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
@@ -1795,9 +1777,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                     move = allMoves[i];
                     return true;
                 }
-        } else if (strlen(san) == 3) // ef4
+        } else if (san.length() == 3) // ef4
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].ft() == ChessCharToFile(san[1]) &&
                     allMoves[i].rt() == ChessCharToRank(san[2]) &&
@@ -1806,9 +1788,9 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                     move = allMoves[i];
                     return true;
                 }
-        } else if (strlen(san) == 4) // e3f4
+        } else if (san.length() == 4) // e3f4
         {
-            for (i = 0; i < allMoves.size(); ++i)
+            for (size_t i = 0; i < allMoves.size(); ++i)
                 if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
                     allMoves[i].rf() == ChessCharToRank(san[1]) &&
                     allMoves[i].ft() == ChessCharToFile(san[2]) &&
@@ -1820,12 +1802,11 @@ bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& all
                 }
         }
     } else {
-
-        size_t const sanLength = strlen(san); // to avoid continually calling strlen()
+        size_t const sanLength = san.length();
         if (sanLength < 3)
             return false;
 
-        for (i = 0; i < allMoves.size(); ++i)
+        for (size_t i = 0; i < allMoves.size(); ++i)
             if (allMoves[i].ft() == ChessCharToFile(san[sanLength - 2]) &&
                 allMoves[i].rt() == ChessCharToRank(san[sanLength - 1]) &&
                 b(allMoves[i].rf(), allMoves[i].ff()) == piece) {

@@ -30,6 +30,13 @@ template <class T> class List {
         return *it;
     }
 
+    T const& operator[](size_t index) const {
+        assert(index < impl_.size());
+        auto it = impl_.begin();
+        std::advance(it, index);
+        return *it;
+    }
+
     size_t size() const { return impl_.size(); }
 
   private:

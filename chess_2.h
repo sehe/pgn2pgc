@@ -182,11 +182,11 @@ class Board {
     void moveToAlgebraic(std::string&, ChessMove const&);
     void moveToAlgebraic(std::string&, ChessMove const&, List<ChessMove>&);
 
-    bool algebraicToMove(ChessMove&, char const[]);
-    bool algebraicToMove(ChessMove&, char const[], List<ChessMove>&);
+    bool algebraicToMove(ChessMove&, std::string_view);
+    bool algebraicToMove(ChessMove&, std::string_view, List<ChessMove>&);
 
-    bool algebraicToSAN(std::string&, std::string const&, List<ChessMove>&,
-                        SANQueue&); // cleans up move
+    // cleans up move
+    bool algebraicToSAN(std::string&, std::string const&, List<ChessMove>&, SANQueue&);
 
     bool canCaptureSquare(size_t r, size_t f);
 
@@ -260,10 +260,7 @@ inline bool IsPromoChar(char c) {
     return toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R' || toupper(c) == 'K';
 }
 
-// case insensitive
-unsigned NumCharsInStr(char const& str, int c);
-
 // converts the SAN string to a ChessMove
-bool AlgebraicToMove(char const constSAN[], Board const& b, ChessMove& move);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move);
 
-bool AlgebraicToMove(char const constSAN[], Board const& b, List<ChessMove>& allMoves, ChessMove& move);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove>& allMoves, ChessMove& move);
