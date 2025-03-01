@@ -43,16 +43,10 @@ template <class T, typename C = std::multiset<T>> class PriorityQueue {
         std::swap(current_, rhs.current_);
         return *this;
     }
+
     // add an object onto the end of the list.
     void add(T addValue) {
-        auto pos = impl_.lower_bound(addValue);
-        if (pos == impl_.begin() && pos != impl_.end()) {
-            // SEHE FIXME: the misguided special case for first element equivalence is
-            // probably a bug in the original code
-            pos = std::next(pos);
-        }
-        impl_.insert(pos, std::move(addValue));
-        gotoFirst(); // ??!
+        impl_.insert(std::move(addValue));
     }
 
     // sets object so that next() will return the first object in the list
