@@ -12,10 +12,6 @@ namespace fs = std::filesystem;
 #include "chess_2.h"
 #include "list5.h"
 
-using pgcByteT       = int8_t;  // one byte (two's complement)
-using pgcWordT       = int16_t; // two bytes (two's complement)
-using pgcDoubleWordT = int32_t; // four bytes (two's complement)
-
 // from https://stackoverflow.com/a/8197886/85371
 #include <bit>
 #include <climits>
@@ -31,16 +27,11 @@ template <std::integral T> constexpr bool is_little_endian() {
     return true;
 }
 
-static inline void gToLittleEndian(pgcWordT w, char c[]) {
-    assert(c);
-
-    if constexpr (char* source = (char*)&w; is_little_endian<pgcWordT>()) {
-        c[0] = source[0];
-        c[1] = source[1];
-    } else {
-        c[0] = source[1];
-        c[1] = source[0];
-    }
+static inline void gToLittleEndian(int16_t w, std::array<char, 2>& c) {
+    if constexpr (char* source = (char*)&w; is_little_endian<int16_t>())
+        c = {source[0], source[1]};
+    else
+        c = {source[1], source[0]};
 }
 
 //!!? Possible expansion (not covered in PGN standard document):
@@ -57,16 +48,16 @@ static inline void gToLittleEndian(pgcWordT w, char c[]) {
 #include <iostream>
 
 [[maybe_unused]] //
-static pgcByteT const kMarkerBeginGameReduced  = 0x01;
-static pgcByteT const kMarkerTagPair           = 0x02;
-static pgcByteT const kMarkerShortMoveSequence = 0x03;
-static pgcByteT const kMarkerLongMoveSequence  = 0x04;
-static pgcByteT const kMarkerGameDataBegin     = 0x05;
-static pgcByteT const kMarkerGameDataEnd       = 0x06;
-static pgcByteT const kMarkerSimpleNAG         = 0x07;
-static pgcByteT const kMarkerRAVBegin          = 0x08;
-static pgcByteT const kMarkerRAVEnd            = 0x09;
-static pgcByteT const kMarkerEscape            = 0x0a;
+static int8_t const kMarkerBeginGameReduced  = 0x01;
+static int8_t const kMarkerTagPair           = 0x02;
+static int8_t const kMarkerShortMoveSequence = 0x03;
+static int8_t const kMarkerLongMoveSequence  = 0x04;
+static int8_t const kMarkerGameDataBegin     = 0x05;
+static int8_t const kMarkerGameDataEnd       = 0x06;
+static int8_t const kMarkerSimpleNAG         = 0x07;
+static int8_t const kMarkerRAVBegin          = 0x08;
+static int8_t const kMarkerRAVEnd            = 0x09;
+static int8_t const kMarkerEscape            = 0x0a;
 
 void SkipWhite(char const*& c) {
     assert(c);
@@ -95,7 +86,7 @@ struct PGNTag {
 
 // adds all of the tags to the list, and returns where the tags ended.
 // tag names are converted to upper case
-char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
+char const* ParsePGNTags(char const* pgn, std::vector<PGNTag>& tags) {
     assert(pgn);
     assert(tags);
 
@@ -121,7 +112,7 @@ char const* ParsePGNTags(char const* pgn, List<PGNTag>* tags) {
             ++pgn;
         }
         if (*pgn != '\0')
-            tags->add(tag);
+            tags.push_back(std::move(tag));
 
         SkipTo(pgn, kPGNTagEnd);
         SkipWhite(pgn);
@@ -171,7 +162,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     enum E_reasonToEndSequence { RAVBegin, RAVEnd, NAG, escape, other } reasonToBreak = other;
     E_gameTermination gameResult                                                      = none;
 
-    pgcByteT    NAGVal;
+    int8_t      NAGVal;
     std::string escapeToken;
 
     auto const moves = [&] {
@@ -314,9 +305,9 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     //! Begin and end game data markers (i.e. using kMarkerBeginGameReduced)
     if (moves.size()) {
         if (moves.size() <= UCHAR_MAX)
-            pgc << kMarkerShortMoveSequence << (pgcByteT)moves.size();
+            pgc << kMarkerShortMoveSequence << (int8_t)moves.size();
         else {
-            char moveSize[2];
+            std::array<char, 2> moveSize;
             gToLittleEndian(moves.size(), moveSize);
             pgc << kMarkerLongMoveSequence << moveSize[0] << moveSize[1];
         }
@@ -344,7 +335,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
 
             assert(FindElement(san, SANMoves) != -1);
 
-            pgc << (pgcByteT)FindElement(san, SANMoves);
+            pgc << (int8_t)FindElement(san, SANMoves);
 
             if (i == (moves.size() - 1)) {
                 if (reasonToBreak == RAVBegin) {
@@ -381,7 +372,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             break; // you can only have a NAG if you have a move, and only one NAG per
                    // move (formal pgn syntax)
         case escape:
-            char escapeLength[2];
+            std::array<char, 2> escapeLength;
             gToLittleEndian(escapeToken.length(), escapeLength);
             pgc << kMarkerEscape << escapeLength[0] << escapeLength[1] << escapeToken;
             break;
@@ -406,9 +397,9 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
 // sets endOfGame to the place in pgn where the game stopped being processed
 E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream& pgc) {
     assert(pgn);
-    List<PGNTag> tags;
+    std::vector<PGNTag> tags;
     endOfGame = pgn;
-    pgn       = ParsePGNTags(pgn, &tags);
+    pgn       = ParsePGNTags(pgn, tags);
 
     Board game;
 
@@ -422,15 +413,15 @@ E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream
     char const* sevenTagRoster[] = {
         "EVENT", "SITE", "DATE", "ROUND", "WHITE", "BLACK", "RESULT",
     };
-    int i, j;
-    for (i = 0; i < int(sizeof(sevenTagRoster) / sizeof(sevenTagRoster[0])); ++i) {
+    for (int i = 0; i < int(sizeof(sevenTagRoster) / sizeof(sevenTagRoster[0])); ++i) {
         bool foundTag = false;
-        for (j = 0; j < int(tags.size()) && !foundTag; ++j) {
+        for (int j = 0; j < int(tags.size()); ++j) {
             if (tags[j].name == sevenTagRoster[i]) {
                 assert(tags[j].value.length() <= UCHAR_MAX); //??! Need to deal with this
-                pgc << (pgcByteT)tags[j].value.length() << tags[j].value;
-                tags.remove(j);
+                pgc << (int8_t)tags[j].value.length() << tags[j].value;
+                tags.erase(tags.begin() + j);
                 foundTag = true;
+                break;
             }
         }
         if (!foundTag) {
@@ -439,19 +430,19 @@ E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream
                 case 1:
                 case 3:
                 case 4:
-                case 5: pgc << (pgcByteT)1 << '?'; break;
-                case 2: pgc << (pgcByteT)strlen("????.??.??") << "????.??.??"; break;
-                case 6: pgc << (pgcByteT)1 << '*'; break;
+                case 5: pgc << (int8_t)1 << '?'; break;
+                case 2: pgc << (int8_t)strlen("????.??.??") << "????.??.??"; break;
+                case 6: pgc << (int8_t)1 << '*'; break;
                 default: assert(0); // not Reached
             }
         }
     }
     // any remaining tags
     //??! Case information is lost when parsing tags
-    for (i = 0; i < int(tags.size()); ++i) {
+    for (int i = 0; i < int(tags.size()); ++i) {
         assert(tags[i].name.length() < UCHAR_MAX); //??! Need to deal with this
-        pgc << kMarkerTagPair << (pgcByteT)tags[i].name.length() << tags[i].name
-            << (pgcByteT)tags[i].value.length() << tags[i].value;
+        pgc << kMarkerTagPair << (int8_t)tags[i].name.length() << tags[i].name
+            << (int8_t)tags[i].value.length() << tags[i].value;
 
         if (tags[i].name == "FEN") // process FEN
             game.processFEN(tags[i].value.c_str());
@@ -513,7 +504,8 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
             case RAVUnderflow: std::cout << "\n RAV underflow."; break;
             case parsingError:
                 std::cout << "\n Parsing error (may be end-of-file).";
-                break; // return gamesProcessed; //??! Needs fixing .eof()
+                break;
+                // return gamesProcessed; //??! Needs fixing .eof()
             default:
                 pgc << pgcGame.str();
                 ++gamesProcessed;
@@ -534,19 +526,14 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
     return gamesProcessed;
 }
 
-// Test Test Test Test Test Test Test Test Test Test Test Test Test Test Test
-#define TEST
-#ifdef TEST
-    #undef TEST
-
-    #include <cassert>
-    #include <cctype>
-    #include <cstddef>
-    #include <cstdio>
-    #include <cstdlib>
-    #include <cstring>
-    #include <fstream>
-    #include <iostream>
+#include <cassert>
+#include <cctype>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <iostream>
 
 // non-standard (may not be portable to some operating systems)
 
@@ -759,5 +746,3 @@ bool IsFileNameReserved(fs::path const& fileName) {
 
     return false;
 }
-
-#endif
