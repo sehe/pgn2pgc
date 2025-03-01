@@ -171,8 +171,8 @@ class Board {
 
     int enPassant() const { return enPassant_; }
 
-    size_t ranks() const { return gRanks; }
-    size_t files() const { return gFiles; }
+    int ranks() const { return gRanks; }
+    int files() const { return gFiles; }
 
     void genLegalMoves(List<ChessMove>&);
     // adds the moves to the list and the SAN representations to the queue
@@ -183,10 +183,7 @@ class Board {
     void moveToAlgebraic(std::string&, ChessMove const&, List<ChessMove>&);
 
     bool algebraicToMove(ChessMove&, std::string_view);
-    bool algebraicToMove(ChessMove&, std::string_view, List<ChessMove>&);
-
-    // cleans up move
-    bool algebraicToSAN(std::string&, std::string const&, List<ChessMove>&, SANQueue&);
+    bool algebraicToMove(ChessMove&, std::string_view, List<ChessMove> const&);
 
     bool canCaptureSquare(size_t r, size_t f);
 
@@ -208,8 +205,7 @@ class Board {
     void genPseudoLegalMoves(List<ChessMove>&);
     void genPseudoLegalMoves(List<ChessMove>&, SANQueue&);
     void genLegalMoves(List<ChessMove>&, SANQueue&);
-    void addMove(int rf, int ff, int rt, int ft, ChessMove::E_type type, List<ChessMove>& moves,
-                 SANQueue& allSAN);
+    void addMove(ChessMove, List<ChessMove>& moves, SANQueue& allSAN);
     void moveToAlgebraicAmbiguity(std::string&, ChessMove const&);
     void removeIllegalMoves(List<ChessMove>&, SANQueue&);
 
@@ -263,4 +259,4 @@ inline bool IsPromoChar(char c) {
 // converts the SAN string to a ChessMove
 bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move);
 
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove>& allMoves, ChessMove& move);
+bool AlgebraicToMove(std::string_view constSAN, Board const& b, List<ChessMove> const& allMoves, ChessMove& move);
