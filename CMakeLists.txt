@@ -17,5 +17,4 @@ add_executable(pgn2pgc pgnpgc3.cpp
     strparse.cpp
 )
 
-add_executable(test_list list5.cpp)
 add_executable(test_pqueue pqueue_2.cpp)
