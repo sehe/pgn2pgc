@@ -87,8 +87,9 @@ namespace pgn2pgc::Chess {
             blackCastleQS,
         };
 
-        constexpr ChessMove(int y1 = 0, int x1 = 0, int y2 = 0, int x2 = 0, enum Type kind = normal)
-            : from_{y1, x1}, to_{y2, x2}, type_(kind) {}
+        constexpr ChessMove(Occupant actor = Occupant::noPiece, int y1 = 0, int x1 = 0, int y2 = 0,
+                            int x2 = 0, enum Type kind = normal)
+            : actor_(actor), from_{y1, x1}, to_{y2, x2}, type_(kind) {}
 
         constexpr auto operator<=>(ChessMove const& rhs) const = default;
         constexpr bool isPromo() const {
@@ -96,6 +97,7 @@ namespace pgn2pgc::Chess {
                 type_ == promoQueen || type_ == promoKing;
         }
         constexpr bool     isEnPassant() const { return type_ == whiteEnPassant || type_ == blackEnPassant; }
+        constexpr Occupant actor() const { return actor_; }
         constexpr RankFile from() const { return from_; }
         constexpr RankFile to() const { return to_; }
         constexpr Type const& type() const { return type_; }
@@ -104,6 +106,7 @@ namespace pgn2pgc::Chess {
       private:
         // row from, file from, row to, file to //!?? Keep signed int so that can
         // use in expressions that depend on signed values
+        Occupant actor_;
         RankFile from_, to_;
         Type     type_;
     };
@@ -148,7 +151,6 @@ namespace pgn2pgc::Chess {
         IllegalMove(std::string_view input) : MoveError("Illegal move: " + std::string(input)) {}
     };
 
-    using SANQueue = support::PriorityQueue<ChessMoveSAN>;
     enum class GameStatus { notInCheck, inCheck, inCheckmate, inStalemate };
 
     //-----------------------------------------------------------------------------
@@ -188,10 +190,19 @@ namespace pgn2pgc::Chess {
         int ranks() const { return gRanks; }
         int files() const { return gFiles; }
 
-        // all legal moves are added to the list, including castling
-        void genLegalMoves(MoveList&) const;
         // adds the moves to the list and the SAN representations to the queue
-        void genLegalMoveSet(MoveList&, SANQueue&);
+        struct OrderedMoveList {
+            using SANQueue = support::PriorityQueue<ChessMoveSAN>;
+
+            MoveList legal;
+            SANQueue bysan;
+
+            void disambiguateMoves();
+
+          private:
+            void disambiguate(ChessMove const&, std::string&);
+        };
+        void genLegalMoveSet(OrderedMoveList&);
 
         // no ambiguities, move is not checked for legality
         std::string toSAN(ChessMove const&, MoveList const&) const;
@@ -220,13 +231,16 @@ namespace pgn2pgc::Chess {
 #endif
 
       private:
-        void        disambiguateMoves(SANQueue&);
-        void        disambiguate(ChessMove const&, std::string&, SANQueue&);
-        void        genPseudoLegalMoves(MoveList&, SANQueue&);
-        void        genLegalMoves(MoveList&, SANQueue&);
-        void        addMove(ChessMove, MoveList& moves, SANQueue& allSAN);
-        std::string ambiguousSAN(ChessMove const&);
-        void        removeIllegalMoves(MoveList&, SANQueue&);
+        void genPseudoLegalMoves(OrderedMoveList&) const;
+
+        void addMove(ChessMove, MoveList& moves) const;
+        void addMove(ChessMove, OrderedMoveList& moves) const;
+
+        // all legal moves are added to the list, including castling
+        void        genLegalMoves(MoveList&) const;
+        void        genLegalMoves(OrderedMoveList&) const;
+        std::string ambiguousSAN(ChessMove const&) const;
+        void        removeIllegalMoves(OrderedMoveList&) const;
 
         static constexpr int gRanks = 8, gFiles = 8;
         using Rank   = std::array<Square, gFiles>;

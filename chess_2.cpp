@@ -259,35 +259,37 @@ namespace pgn2pgc::Chess {
     // all legal moves are added to the list, including castling
     inline void Board::genLegalMoves(MoveList& moves) const {
         GenPseudoLegalMoves(moves); // FIXME
-        int i;
 
         // castling moves
-        if (isWhiteToMove() && ((getCastle() & Board::whiteKS) || (getCastle() & Board::whiteQS))) {
+        if (isWhiteToMove() && (getCastle() & (Board::whiteKS | Board::whiteQS))) {
             // search for king on first rank
-            for (i = 0; i < files(); ++i) {
-                if (fBoard[0][i] == whiteKing) {
+            for (int file = 0; file < files(); ++file) {
+                if (fBoard[0][file] == whiteKing) {
                     if (getCastle() & Board::whiteKS) {
                         bool pieceInWay = false;
-                        for (int j = i + 1; j < files() - 1; ++j)
+                        for (int j = file + 1; j < files() - 1; ++j)
                             if (!fBoard[0][j].isEmpty())
                                 pieceInWay = true;
 
-                        if (!pieceInWay && fBoard[0][files() - 1] == whiteRook && i + 2 < files()) {
-                            if (!IsInCheck() && !WillBeInCheck(ChessMove(0, i, 0, i + 1)))
-                                moves.add(ChessMove(0, i, 0, i + 2, ChessMove::whiteCastleKS));
+                        if (!pieceInWay && fBoard[0][files() - 1] == whiteRook && file + 2 < files()) {
+                            if (!IsInCheck() && !WillBeInCheck({Occupant::whiteKing, 0, file, 0, file + 1}))
+                                moves.add(
+                                    {Occupant::whiteKing, 0, file, 0, file + 2, ChessMove::whiteCastleKS});
                         }
                     }
                     if (getCastle() & Board::whiteQS) {
                         bool pieceInWay = false;
-                        for (int j = i - 1; j > 1; --j)
+                        for (int j = file - 1; j > 1; --j)
                             if (!fBoard[0][j].isEmpty())
                                 pieceInWay = true;
 
-                        if (!pieceInWay && fBoard[0][0] == whiteRook && i - 2 > 0) {
+                        if (!pieceInWay && fBoard[0][0] == whiteRook && file - 2 > 0) {
                             if (!IsInCheck() &&
-                                !WillBeInCheck(ChessMove(0, i, 0, i - 1))) // cannot castle through
-                                                                           // check, or when in check
-                                moves.add(ChessMove(0, i, 0, i - 2, ChessMove::whiteCastleQS));
+                                !WillBeInCheck(
+                                    {Occupant::whiteKing, 0, file, 0, file - 1})) // cannot castle through
+                                                                                  // check, or when in check
+                                moves.add(
+                                    {Occupant::whiteKing, 0, file, 0, file - 2, ChessMove::whiteCastleQS});
                         }
                     }
                 }
@@ -295,46 +297,49 @@ namespace pgn2pgc::Chess {
                 //!(some form of wild?)
             }
 
-        } else if (isBlackToMove() && ((getCastle() & Board::blackKS) || (getCastle() & Board::blackQS))) {
+        } else if (isBlackToMove() && (getCastle() & (Board::blackKS | Board::blackQS))) {
             // search for king on back rank
-            for (i = 0; i < files(); ++i) {
-                if (fBoard[ranks() - 1][i] == blackKing) {
+            for (int file = 0; file < files(); ++file) {
+                if (fBoard[ranks() - 1][file] == blackKing) {
                     if (getCastle() & Board::blackKS) {
                         bool pieceInWay = false;
-                        for (int j = i + 1; j < files() - 1; ++j)
+                        for (int j = file + 1; j < files() - 1; ++j)
                             if (!fBoard[ranks() - 1][j].isEmpty())
                                 pieceInWay = true;
 
-                        if (!pieceInWay && fBoard[ranks() - 1][files() - 1] == blackRook && i + 2 < files()) {
+                        if (!pieceInWay && fBoard[ranks() - 1][files() - 1] == blackRook &&
+                            file + 2 < files()) {
                             if (!IsInCheck() &&
-                                !WillBeInCheck(ChessMove(ranks() - 1, i, ranks() - 1, i + 1))) {
-                                moves.add(
-                                    ChessMove(ranks() - 1, i, ranks() - 1, i + 2, ChessMove::blackCastleKS));
+                                !WillBeInCheck(
+                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 1})) {
+                                moves.add({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 2,
+                                           ChessMove::blackCastleKS});
                             }
                         }
                     }
                     if (getCastle() & Board::blackQS) {
                         bool pieceInWay = false;
-                        for (int j = i - 1; j > 1; --j)
+                        for (int j = file - 1; j > 1; --j)
                             if (!fBoard[ranks() - 1][j].isEmpty())
                                 pieceInWay = true;
 
-                        if (!pieceInWay && fBoard[ranks() - 1][0] == blackRook && i - 2 > 0) {
-                            if (!IsInCheck() && !WillBeInCheck(ChessMove(ranks() - 1, i, ranks() - 1, i - 1)))
-                                moves.add(
-                                    ChessMove(ranks() - 1, i, ranks() - 1, i - 2, ChessMove::blackCastleQS));
+                        if (!pieceInWay && fBoard[ranks() - 1][0] == blackRook && file - 2 > 0) {
+                            if (!IsInCheck() &&
+                                !WillBeInCheck(
+                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 1}))
+                                moves.add({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 2,
+                                           ChessMove::blackCastleQS});
                         }
                     }
                 }
             }
         }
 
-        i = 0;
-        while (i < ssize(moves)) {
-            if (WillBeInCheck(moves[i]))
-                moves.remove(i);
+        for (int file = 0; file < ssize(moves);) {
+            if (WillBeInCheck(moves[file]))
+                moves.remove(file);
             else
-                ++i;
+                ++file;
         };
     }
 
@@ -639,24 +644,32 @@ namespace pgn2pgc::Chess {
         throw IllegalMove{constSAN};
     }
 
-    void Board::genLegalMoveSet(MoveList& legal, SANQueue& allSAN) {
+    void Board::genLegalMoveSet(OrderedMoveList& moves) {
         // should combine genLegalMoves and toSAN efficiently
-        genLegalMoves(legal, allSAN);
+        genLegalMoves(moves);
         // disambiguateAllMoves
-        disambiguateMoves(allSAN);
+        moves.disambiguateMoves();
     }
 
-    inline void Board::addMove(ChessMove mv, MoveList& moves, SANQueue& allSAN) {
+    inline void Board::addMove(ChessMove mv, MoveList& moves) const {
 #if !ALLOW_KING_PROMOTION
         if (mv.type() == ChessMove::promoKing)
             return;
 #endif
         moves.add(mv);
-        allSAN.add({mv, ambiguousSAN(mv)});
     }
 
-    void Board::genLegalMoves(MoveList& legal, SANQueue& allSAN) {
-        genPseudoLegalMoves(legal, allSAN);
+    inline void Board::addMove(ChessMove mv, OrderedMoveList& moves) const {
+#if !ALLOW_KING_PROMOTION
+        if (mv.type() == ChessMove::promoKing)
+            return;
+#endif
+        moves.legal.add(mv);
+        moves.bysan.add({mv, ambiguousSAN(mv)});
+    }
+
+    void Board::genLegalMoves(OrderedMoveList& moves) const {
+        genPseudoLegalMoves(moves);
         int i;
 
         // castling moves
@@ -672,8 +685,9 @@ namespace pgn2pgc::Chess {
                                     pieceInWay = true;
 
                             if (!pieceInWay && fBoard[0][files() - 1] == whiteRook && i + 2 < files()) {
-                                if (!WillBeInCheck({0, i, 0, i + 1}))
-                                    addMove({0, i, 0, i + 2, ChessMove::whiteCastleKS}, legal, allSAN);
+                                if (!WillBeInCheck({Occupant::whiteKing, 0, i, 0, i + 1}))
+                                    addMove({Occupant::whiteKing, 0, i, 0, i + 2, ChessMove::whiteCastleKS},
+                                            moves);
                             }
                         }
                         if (getCastle() & whiteQS) {
@@ -683,9 +697,11 @@ namespace pgn2pgc::Chess {
                                     pieceInWay = true;
 
                             if (!pieceInWay && fBoard[0][0] == whiteRook && i - 2 > 0) {
-                                if (!WillBeInCheck({0, i, 0, i - 1})) // cannot castle through
-                                                                      // check, or when in check
-                                    addMove({0, i, 0, i - 2, ChessMove::whiteCastleQS}, legal, allSAN);
+                                if (!WillBeInCheck(
+                                        {Occupant::whiteKing, 0, i, 0, i - 1})) // cannot castle through
+                                                                                // check, or when in check
+                                    addMove({Occupant::whiteKing, 0, i, 0, i - 2, ChessMove::whiteCastleQS},
+                                            moves);
                             }
                         }
                         break; //!!? Break is possible here, unless two kings on rank and one
@@ -705,9 +721,11 @@ namespace pgn2pgc::Chess {
 
                             if (!pieceInWay && fBoard[ranks() - 1][files() - 1] == blackRook &&
                                 i + 2 < files()) {
-                                if (!WillBeInCheck({ranks() - 1, i, ranks() - 1, i + 1})) {
-                                    addMove({ranks() - 1, i, ranks() - 1, i + 2, ChessMove::blackCastleKS},
-                                            legal, allSAN);
+                                if (!WillBeInCheck(
+                                        {Occupant::blackKing, ranks() - 1, i, ranks() - 1, i + 1})) {
+                                    addMove({Occupant::blackKing, ranks() - 1, i, ranks() - 1, i + 2,
+                                             ChessMove::blackCastleKS},
+                                            moves);
                                 }
                             }
                         }
@@ -718,9 +736,10 @@ namespace pgn2pgc::Chess {
                                     pieceInWay = true;
 
                             if (!pieceInWay && fBoard[ranks() - 1][0] == blackRook && i - 2 > 0) {
-                                if (!WillBeInCheck({ranks() - 1, i, ranks() - 1, i - 1}))
-                                    addMove({ranks() - 1, i, ranks() - 1, i - 2, ChessMove::blackCastleQS},
-                                            legal, allSAN);
+                                if (!WillBeInCheck({Occupant::blackKing, ranks() - 1, i, ranks() - 1, i - 1}))
+                                    addMove({Occupant::blackKing, ranks() - 1, i, ranks() - 1, i - 2,
+                                             ChessMove::blackCastleQS},
+                                            moves);
                             }
                         }
                         break;
@@ -729,12 +748,13 @@ namespace pgn2pgc::Chess {
             }
         }
 
-        TIMED(removeIllegalMoves(legal, allSAN));
+        TIMED(removeIllegalMoves(moves));
     }
 
-    void Board::removeIllegalMoves(MoveList& legal, SANQueue& allSAN) {
-        bool     isFound = false;
-        Occupant target  = toMove() == ToMove::white ? whiteKing : blackKing;
+    void Board::removeIllegalMoves(OrderedMoveList& moves) const {
+        auto& [legal, allSAN] = moves;
+        bool     isFound      = false;
+        Occupant target       = toMove() == ToMove::white ? whiteKing : blackKing;
 
         struct {
             unsigned r, f;
@@ -785,7 +805,7 @@ namespace pgn2pgc::Chess {
 
     // doesn't worry about any ambiguities, nor does it indicate check
     // or checkmate status (which don't alter sort order anyway)
-    std::string Board::ambiguousSAN(ChessMove const& m) {
+    std::string Board::ambiguousSAN(ChessMove const& m) const {
         std::ostringstream o;
 
         switch (at(m.from()).contents()) {
@@ -839,44 +859,45 @@ namespace pgn2pgc::Chess {
         return std::move(o).str();
     }
 
-    void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
+    void Board::genPseudoLegalMoves(OrderedMoveList& moves) const {
         if (toMove() == ToMove::endOfGame)
             return;
 
         for (int rf = 0; rf < ranks(); ++rf)
             for (int ff = 0; ff < files(); ++ff) {
-                if ((fBoard[rf][ff].isBlack() && toMove() == ToMove::white) ||
-                    (fBoard[rf][ff].isWhite() && toMove() == ToMove::black)) {
+                auto& source = at(rf, ff);
+                if ((source.isBlack() && toMove() == ToMove::white) ||
+                    (source.isWhite() && toMove() == ToMove::black)) {
                     continue;
                 }
-                switch (fBoard[rf][ff].contents()) {
+                switch (auto actor = source.contents()) {
                     case whitePawn:
                         if (rf < 7 && fBoard[rf + 1][ff].isEmpty()) {
                             if (rf == ranks() - 2) // promotion
                             {
-                                addMove({rf, ff, rf + 1, ff, ChessMove::promoQueen}, moves, allSAN);
-                                addMove({rf, ff, rf + 1, ff, ChessMove::promoBishop}, moves, allSAN);
-                                addMove({rf, ff, rf + 1, ff, ChessMove::promoKnight}, moves, allSAN);
-                                addMove({rf, ff, rf + 1, ff, ChessMove::promoRook}, moves, allSAN);
-                                addMove({rf, ff, rf + 1, ff, ChessMove::promoKing}, moves, allSAN);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoQueen}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoBishop}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoKnight}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoRook}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoKing}, moves);
                             } else {
-                                addMove({rf, ff, rf + 1, ff, ChessMove::normal}, moves, allSAN);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::normal}, moves);
                             }
                         }
                         if (rf == 1 && fBoard[2][ff].isEmpty() && fBoard[3][ff].isEmpty()) {
-                            addMove({rf, ff, 3, ff, ChessMove::normal}, moves, allSAN);
+                            addMove({actor, rf, ff, 3, ff, ChessMove::normal}, moves);
                         }
                         for (int s = -1; s <= 1; s += 2) {
                             if (rf < 7 && ff + s >= 0 && ff + s <= 7 && fBoard[rf + 1][ff + s].isBlack()) {
                                 if (rf == ranks() - 2) // promotion
                                 {
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::promoQueen}, moves, allSAN);
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::promoKnight}, moves, allSAN);
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::promoBishop}, moves, allSAN);
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::promoRook}, moves, allSAN);
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::promoKing}, moves, allSAN);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoQueen}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoKnight}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoBishop}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoRook}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoKing}, moves);
                                 } else {
-                                    addMove({rf, ff, rf + 1, ff + s, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::normal}, moves);
                                 }
                             }
                             if (rf == ranks() - 4) {
@@ -885,8 +906,8 @@ namespace pgn2pgc::Chess {
                                     fBoard[ranks() - 4][ff + s].contents() == blackPawn &&
                                     fBoard[ranks() - 3][ff + s].isEmpty()) {
 
-                                    addMove({rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant}, moves,
-                                            allSAN);
+                                    addMove({actor, rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant},
+                                            moves);
                                 }
                             }
                         }
@@ -896,30 +917,30 @@ namespace pgn2pgc::Chess {
                         if (rf > 0 && fBoard[rf - 1][ff].isEmpty()) {
                             if (rf == 1) // promotion
                             {
-                                addMove({rf, ff, rf - 1, ff, ChessMove::promoQueen}, moves, allSAN);
-                                addMove({rf, ff, rf - 1, ff, ChessMove::promoKnight}, moves, allSAN);
-                                addMove({rf, ff, rf - 1, ff, ChessMove::promoBishop}, moves, allSAN);
-                                addMove({rf, ff, rf - 1, ff, ChessMove::promoRook}, moves, allSAN);
-                                addMove({rf, ff, rf - 1, ff, ChessMove::promoKing}, moves, allSAN);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoQueen}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoKnight}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoBishop}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoRook}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoKing}, moves);
                             } else {
-                                addMove({rf, ff, rf - 1, ff, ChessMove::normal}, moves, allSAN);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::normal}, moves);
                             }
                         }
                         if (rf == ranks() - 2 && fBoard[ranks() - 3][ff].isEmpty() &&
                             fBoard[ranks() - 4][ff].isEmpty()) {
-                            addMove({rf, ff, ranks() - 4, ff, ChessMove::normal}, moves, allSAN);
+                            addMove({actor, rf, ff, ranks() - 4, ff, ChessMove::normal}, moves);
                         }
                         for (int s = -1; s <= 1; s += 2) {
                             if (rf > 0 && ff + s >= 0 && ff + s <= 7 && fBoard[rf - 1][ff + s].isWhite()) {
                                 if (rf == 1) // promotion
                                 {
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::promoQueen}, moves, allSAN);
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::promoKnight}, moves, allSAN);
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::promoBishop}, moves, allSAN);
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::promoRook}, moves, allSAN);
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::promoKing}, moves, allSAN);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoQueen}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoKnight}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoBishop}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoRook}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoKing}, moves);
                                 } else {
-                                    addMove({rf, ff, rf - 1, ff + s, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::normal}, moves);
                                 }
                             }
                             if (rf == 3) {
@@ -927,7 +948,7 @@ namespace pgn2pgc::Chess {
                                     (enPassant() == ff + s || enPassant() == Board::allCaptures) &&
                                     fBoard[3][ff + s].contents() == whitePawn &&
                                     fBoard[2][ff + s].isEmpty()) {
-                                    addMove({rf, ff, 2, ff + s, ChessMove::blackEnPassant}, moves, allSAN);
+                                    addMove({actor, rf, ff, 2, ff + s, ChessMove::blackEnPassant}, moves);
                                 }
                             }
                         }
@@ -946,7 +967,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         continue;
 
-                                    addMove({rf, ff, rt, ft, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rt, ft, ChessMove::normal}, moves);
                                 }
                         break;
 
@@ -962,7 +983,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    addMove({rf, ff, rt, ft, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rt, ft, ChessMove::normal}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -981,7 +1002,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    addMove({rf, ff, rt, ft, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rt, ft, ChessMove::normal}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -1003,7 +1024,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    addMove({rf, ff, rt, ft, ChessMove::normal}, moves, allSAN);
+                                    addMove({actor, rf, ff, rt, ft, ChessMove::normal}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -1024,7 +1045,7 @@ namespace pgn2pgc::Chess {
                                 if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     continue;
 
-                                addMove({rf, ff, rt, ft, ChessMove::normal}, moves, allSAN);
+                                addMove({actor, rf, ff, rt, ft, ChessMove::normal}, moves);
                             }
                         break;
 
@@ -1162,14 +1183,14 @@ namespace pgn2pgc::Chess {
         return false;
     }
 
-    void Board::disambiguate(ChessMove const& move, std::string& san, SANQueue& all) {
+    void Board::OrderedMoveList::disambiguate(ChessMove const& move, std::string& san) {
         if (san.length()) {
             bool conflict = false, rankConflict = false, fileConflict = false;
-            for (int i = 0; i < ssize(all); ++i) {
-                auto& altMv = all[i].move();
-                if (altMv.to() == move.to() &&           // the same 'to' square
-                    altMv != move &&                     // not the same move
-                    at(move.from()) == at(altMv.from())) // same type of piece
+            for (int i = 0; i < ssize(bysan); ++i) {
+                auto& altMv = bysan[i].move();
+                if (altMv.to() == move.to() &&     // the same 'to' square
+                    altMv != move &&               // not the same move
+                    move.actor() == altMv.actor()) // same type of piece
                 {
                     conflict = true;
                     if (move.from().rank == altMv.from().rank)
@@ -1194,21 +1215,21 @@ namespace pgn2pgc::Chess {
         }
     }
 
-    void Board::disambiguateMoves(SANQueue& allSAN) {
-        bool ambiguity = false;
+    void Board::OrderedMoveList::disambiguateMoves() {
+        auto& [legal, allSAN] = *this;
+        bool ambiguity        = false;
         int  i;
         for (i = 0; i < ssize(allSAN) - 1; ++i) {
             if (allSAN[i] == allSAN[i + 1]) {
-                disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
+                disambiguate(allSAN[i].move(), allSAN[i].SAN());
                 ambiguity = true;
             } else if (ambiguity) {
-                disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
+                disambiguate(allSAN[i].move(), allSAN[i].SAN());
                 ambiguity = false;
             }
         }
-        if (ambiguity) // for the last element
-        {
-            disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
+        if (ambiguity) { // for the last element
+            disambiguate(allSAN[i].move(), allSAN[i].SAN());
         }
     }
 
@@ -1223,40 +1244,42 @@ namespace pgn2pgc::Chess {
 
         for (int rf = 0; rf < ranks(); ++rf)
             for (int ff = 0; ff < files(); ++ff) {
-                if ((fBoard[rf][ff].isBlack() && toMove() == ToMove::white) ||
-                    (fBoard[rf][ff].isWhite() && toMove() == ToMove::black)) {
+                auto& source = at(rf, ff);
+
+                if ((source.isBlack() && toMove() == ToMove::white) ||
+                    (source.isWhite() && toMove() == ToMove::black)) {
                     continue;
                 }
-                switch (fBoard[rf][ff].contents()) {
+                switch (Occupant actor = source.contents()) {
 
                     case whitePawn:
                         if (rf < 7 && fBoard[rf + 1][ff].isEmpty()) {
                             if (rf == ranks() - 2) // promotion
                             {
-                                moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoQueen));
-                                moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKnight));
-                                moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoBishop));
-                                moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoRook));
-                                moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKing));
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoQueen}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoKnight}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoBishop}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoRook}, moves);
+                                addMove({actor, rf, ff, rf + 1, ff, ChessMove::promoKing}, moves);
                             } else {
-                                moves.add(ChessMove(rf, ff, rf + 1, ff));
+                                addMove({actor, rf, ff, rf + 1, ff}, moves);
                             }
                         }
                         if (rf == 1 && fBoard[2][ff].isEmpty() && fBoard[3][ff].isEmpty()) {
-                            moves.add(ChessMove(rf, ff, 3, ff));
+                            addMove({actor, rf, ff, 3, ff}, moves);
                         }
                         for (int s = -1; s <= 1; s += 2) {
                             if (rf < 7 && ff + s >= 0 && ff + s <= 7 && fBoard[rf + 1][ff + s].isBlack()) {
                                 if (rf == ranks() - 2) // promotion
                                 {
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoQueen));
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKnight));
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoBishop));
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoRook));
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKing));
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoQueen}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoKnight}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoBishop}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoRook}, moves);
+                                    addMove({actor, rf, ff, rf + 1, ff + s, ChessMove::promoKing}, moves);
                                     // wild variants
                                 } else {
-                                    moves.add(ChessMove(rf, ff, rf + 1, ff + s));
+                                    addMove({actor, rf, ff, rf + 1, ff + s}, moves);
                                 }
                             }
                             if (rf == ranks() - 4) {
@@ -1264,8 +1287,8 @@ namespace pgn2pgc::Chess {
                                     (enPassant() == ff + s || enPassant() == Board::allCaptures) &&
                                     fBoard[ranks() - 4][ff + s].contents() == blackPawn &&
                                     fBoard[ranks() - 3][ff + s].isEmpty()) {
-                                    moves.add(
-                                        ChessMove(rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant));
+                                    addMove({actor, rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant},
+                                            moves);
                                 }
                             }
                         }
@@ -1275,30 +1298,30 @@ namespace pgn2pgc::Chess {
                         if (rf > 0 && fBoard[rf - 1][ff].isEmpty()) {
                             if (rf == 1) // promotion
                             {
-                                moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoQueen));
-                                moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoKnight));
-                                moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoBishop));
-                                moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoRook));
-                                moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoKing));
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoQueen}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoKnight}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoBishop}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoRook}, moves);
+                                addMove({actor, rf, ff, rf - 1, ff, ChessMove::promoKing}, moves);
                             } else {
-                                moves.add(ChessMove(rf, ff, rf - 1, ff));
+                                addMove({actor, rf, ff, rf - 1, ff}, moves);
                             }
                         }
                         if (rf == ranks() - 2 && fBoard[ranks() - 3][ff].isEmpty() &&
                             fBoard[ranks() - 4][ff].isEmpty()) {
-                            moves.add(ChessMove(rf, ff, ranks() - 4, ff));
+                            addMove({actor, rf, ff, ranks() - 4, ff}, moves);
                         }
                         for (int s = -1; s <= 1; s += 2) {
                             if (rf > 0 && ff + s >= 0 && ff + s <= 7 && fBoard[rf - 1][ff + s].isWhite()) {
                                 if (rf == 1) // promotion
                                 {
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoQueen));
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoKnight));
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoBishop));
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoRook));
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoKing));
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoQueen}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoKnight}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoBishop}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoRook}, moves);
+                                    addMove({actor, rf, ff, rf - 1, ff + s, ChessMove::promoKing}, moves);
                                 } else {
-                                    moves.add(ChessMove(rf, ff, rf - 1, ff + s));
+                                    addMove({actor, rf, ff, rf - 1, ff + s}, moves);
                                 }
                             }
                             if (rf == 3) {
@@ -1306,7 +1329,7 @@ namespace pgn2pgc::Chess {
                                     (enPassant() == ff + s || enPassant() == Board::allCaptures) &&
                                     fBoard[3][ff + s].contents() == whitePawn &&
                                     fBoard[2][ff + s].isEmpty()) {
-                                    moves.add(ChessMove(rf, ff, 2, ff + s, ChessMove::blackEnPassant));
+                                    addMove({actor, rf, ff, 2, ff + s, ChessMove::blackEnPassant}, moves);
                                 }
                             }
                         }
@@ -1325,7 +1348,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         continue;
 
-                                    moves.add(ChessMove(rf, ff, rt, ft));
+                                    addMove({actor, rf, ff, rt, ft}, moves);
                                 }
                         break;
 
@@ -1341,7 +1364,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    moves.add(ChessMove(rf, ff, rt, ft));
+                                    addMove({actor, rf, ff, rt, ft}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -1360,7 +1383,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    moves.add(ChessMove(rf, ff, rt, ft));
+                                    addMove({actor, rf, ff, rt, ft}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -1381,7 +1404,7 @@ namespace pgn2pgc::Chess {
                                     if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                         break;
 
-                                    moves.add(ChessMove(rf, ff, rt, ft));
+                                    addMove({actor, rf, ff, rt, ft}, moves);
 
                                     if (!fBoard[rt][ft].isEmpty())
                                         break;
@@ -1403,7 +1426,7 @@ namespace pgn2pgc::Chess {
                                 if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     continue;
 
-                                moves.add(ChessMove(rf, ff, rt, ft));
+                                addMove({actor, rf, ff, rt, ft}, moves);
                             }
                         break;
 
@@ -1484,14 +1507,13 @@ int main() {
     pgn2pgc::Chess::Board b;
 
     while (std::cin.good()) {
-        pgn2pgc::Chess::SANQueue set;
-        pgn2pgc::Chess::MoveList moves;
+        pgn2pgc::Chess::Board::OrderedMoveList set;
 
         b.display();
-        b.genLegalMoveSet(moves, set);
+        b.genLegalMoveSet(set);
         std::cout << "\n";
 
-        for (auto& mv : set)
+        for (auto& mv : set.bysan)
             std::cout << mv.SAN() << "\t";
 
         std::cout << "\nEnter Move (or end): ";
@@ -1501,8 +1523,8 @@ int main() {
         if (!strcmp(buf, "end"))
             break;
 
-        auto        move = b.parseSAN(buf, moves); // TODO handle MoveError
-        std::string SAN  = b.toSAN(move, moves);
+        auto        move = b.parseSAN(buf, set.legal); // TODO handle MoveError
+        std::string SAN  = b.toSAN(move, set.legal);
 
         b.processMove(move);
 

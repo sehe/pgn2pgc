@@ -20,8 +20,7 @@ namespace {
     using namespace pgn2pgc;
     using Chess::Board;
     using Chess::MoveError;
-    using Chess::MoveList;
-    using Chess::SANQueue;
+    using OrderedMoveList = Chess::Board::OrderedMoveList;
 
     template <std::integral T> constexpr bool is_little_endian() {
         for (unsigned bit = 0; bit != sizeof(T) * CHAR_BIT; ++bit) {
@@ -128,9 +127,9 @@ namespace {
     }
 
     // returns the element, or -1 if it didn't find it
-    int FindElement(std::string const& target, SANQueue& source) {
-        for (unsigned i = 0; i < source.size(); ++i)
-            if (source[i].SAN() == target)
+    int FindElement(std::string const& target, OrderedMoveList& source) {
+        for (unsigned i = 0; i < source.bysan.size(); ++i)
+            if (source.bysan[i].SAN() == target)
                 return i;
 
         return -1;
@@ -317,18 +316,17 @@ namespace {
 
             gTimers[__FUNCTION__].timed([&] {
                 for (size_t i = 0; auto& mv : moves) {
-                    SANQueue SANMoves;
-                    MoveList allMoves;
-                    TIMED(game.genLegalMoveSet(allMoves, SANMoves));
+                    OrderedMoveList legal;
+                    TIMED(game.genLegalMoveSet(legal));
 
                     auto [cm, san] = gTimers["ParseSAN & toSAN"].timed([&] {
-                        auto cm = game.parseSAN(mv, allMoves);
-                        return std::tuple(cm, game.toSAN(cm, allMoves));
+                        auto cm = game.parseSAN(mv, legal.legal);
+                        return std::tuple(cm, game.toSAN(cm, legal.legal));
                     });
 
-                    assert(FindElement(san, SANMoves) != -1);
+                    assert(FindElement(san, legal) != -1);
 
-                    pgc << (int8_t)FindElement(san, SANMoves);
+                    pgc << (int8_t)FindElement(san, legal);
 
                     if (i == (moves.size() - 1)) {
                         if (reasonToBreak == RAVBegin) {
@@ -343,7 +341,7 @@ namespace {
                         }
                     }
 
-                    TIMED(game.processMove(cm, allMoves));
+                    TIMED(game.processMove(cm, legal.legal));
 
                     ++i;
                 }
