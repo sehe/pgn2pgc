@@ -5,7 +5,7 @@
 #include <iostream>
 
 int main() {
-    PriorityQueue<int> l;
+    pgn2pgc::support::PriorityQueue<int> l;
 
     assert(l.isEmpty());
     for (int i = 200; i > 1; --i) {
@@ -22,7 +22,7 @@ int main() {
     for (auto& val : l)
         std::cout << "\t" << val;
 
-    PriorityQueue<int> l2 = l;
+    auto l2 = l;
 
     std::cout << std::endl << std::endl;
     std::cout << "Second dump: " << std::endl;
