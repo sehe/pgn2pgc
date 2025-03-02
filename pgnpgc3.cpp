@@ -20,7 +20,7 @@ namespace {
     using namespace pgn2pgc;
     using Chess::Board;
     using Chess::MoveError;
-    using OrderedMoveList = Chess::Board::OrderedMoveList;
+    using Chess::OrderedMoveList;
 
     template <std::integral T> constexpr bool is_little_endian() {
         for (unsigned bit = 0; bit != sizeof(T) * CHAR_BIT; ++bit) {
@@ -320,8 +320,8 @@ namespace {
                     TIMED(game.genLegalMoveSet(legal));
 
                     auto [cm, san] = gTimers["ParseSAN & toSAN"].timed([&] {
-                        auto cm = game.parseSAN(mv, legal.legal);
-                        return std::tuple(cm, game.toSAN(cm, legal.legal));
+                        auto cm = game.parseSAN(mv, legal.list);
+                        return std::tuple(cm, game.toSAN(cm, legal.list));
                     });
 
                     assert(FindElement(san, legal) != -1);
@@ -341,7 +341,7 @@ namespace {
                         }
                     }
 
-                    TIMED(game.processMove(cm, legal.legal));
+                    TIMED(game.processMove(cm, legal.list));
 
                     ++i;
                 }

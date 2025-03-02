@@ -106,15 +106,9 @@ namespace pgn2pgc::Chess {
       private:
         // row from, file from, row to, file to //!?? Keep signed int so that can
         // use in expressions that depend on signed values
-        Occupant actor_;
+        Occupant actor_ = Occupant::noPiece;
         RankFile from_, to_;
-        Type     type_;
-    };
-
-    struct MoveList : std::vector<ChessMove> {
-        void add(ChessMove v) { push_back(std::move(v)); }
-        void remove(size_t index) { erase(begin() + index); }
-        void makeEmpty() { clear(); }
+        Type     type_ = normal;
     };
 
     class ChessMoveSAN {
@@ -130,6 +124,24 @@ namespace pgn2pgc::Chess {
       private:
         ChessMove   move_{};
         std::string SAN_{};
+    };
+
+    struct MoveList : std::vector<ChessMove> {
+        void add(ChessMove v) { push_back(std::move(v)); }
+        void remove(size_t index) { erase(begin() + index); }
+        void makeEmpty() { clear(); }
+    };
+
+    struct OrderedMoveList {
+        using SANQueue = support::PriorityQueue<ChessMoveSAN>;
+
+        MoveList list;
+        SANQueue bysan;
+
+        void disambiguateMoves();
+
+      private:
+        void disambiguate(ChessMove const&, std::string&);
     };
 
     // char        ChessFileToChar(unsigned file); // 0 = a, 1 = b...
@@ -191,17 +203,6 @@ namespace pgn2pgc::Chess {
         int files() const { return gFiles; }
 
         // adds the moves to the list and the SAN representations to the queue
-        struct OrderedMoveList {
-            using SANQueue = support::PriorityQueue<ChessMoveSAN>;
-
-            MoveList legal;
-            SANQueue bysan;
-
-            void disambiguateMoves();
-
-          private:
-            void disambiguate(ChessMove const&, std::string&);
-        };
         void genLegalMoveSet(OrderedMoveList&);
 
         // no ambiguities, move is not checked for legality
@@ -210,11 +211,6 @@ namespace pgn2pgc::Chess {
         ChessMove parseSAN(std::string_view san, MoveList const& legal) const;
 
         bool canCaptureSquare(int r, int f) const;
-
-        Square operator()(size_t rank, size_t file) const {
-            assert(rank < gRanks && file < gFiles);
-            return fBoard[rank][file];
-        }
 
         void display();
 
@@ -231,8 +227,6 @@ namespace pgn2pgc::Chess {
 #endif
 
       private:
-        void genPseudoLegalMoves(OrderedMoveList&) const;
-
         void addMove(ChessMove, MoveList& moves) const;
         void addMove(ChessMove, OrderedMoveList& moves) const;
 
@@ -256,7 +250,9 @@ namespace pgn2pgc::Chess {
 
         //-----------------------------------------------------------------------------
         // pseudoLegal: not castling, and not worrying about being left in check
-        void GenPseudoLegalMoves(MoveList& moves) const;
+        template <typename Moves>
+            requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
+        void genPseudoLegalMoves(Moves& moves) const; // Moves is MoveList or OrderedMoveList
 
         // returns if the person to move is in check
         bool IsInCheck() const;
@@ -268,7 +264,7 @@ namespace pgn2pgc::Chess {
         bool WillGiveCheck(ChessMove const& move) const;
 
         // what is the status of the position on the board?
-        GameStatus CheckStatus(MoveList&) const;
+        GameStatus CheckStatus(MoveList const&) const;
     };
 
     // return false if 'b', as this can mean a file
