@@ -210,7 +210,7 @@ namespace pgn2pgc::Chess {
 
         ChessMove parseSAN(std::string_view san, MoveList const& legal) const;
 
-        bool canCaptureSquare(int r, int f) const;
+        bool canCaptureSquare(RankFile) const;
 
         void display();
 
@@ -231,8 +231,9 @@ namespace pgn2pgc::Chess {
         void addMove(ChessMove, OrderedMoveList& moves) const;
 
         // all legal moves are added to the list, including castling
-        void        genLegalMoves(MoveList&) const;
-        void        genLegalMoves(OrderedMoveList&) const;
+        template <typename Moves>
+            requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
+        inline void genLegalMoves(Moves& moves) const;
         std::string ambiguousSAN(ChessMove const&) const;
         void        removeIllegalMoves(OrderedMoveList&) const;
 
