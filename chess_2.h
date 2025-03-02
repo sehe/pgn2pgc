@@ -259,6 +259,10 @@ namespace pgn2pgc::Chess {
 
     // return false if 'b', as this can mean a file
     inline bool IsPromoChar(char c) {
-        return toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R' || toupper(c) == 'K';
+        return toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R'
+#if ALLOW_KING_PROMOTION
+            || toupper(c) == 'K'
+#endif
+            ;
     }
 } // namespace pgn2pgc::Chess
