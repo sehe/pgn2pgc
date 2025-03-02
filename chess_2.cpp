@@ -620,7 +620,7 @@ namespace pgn2pgc::Chess {
                             break;
                         case 5:
                             if (match.from().file == ChessCharToFile(san[1]) &&
-                                match.from().rank == ChessCharToFile(san[2])) // Ng1f3
+                                match.from().rank == ChessCharToRank(san[2])) // Ng1f3
                             {
                                 return match;
                             }
