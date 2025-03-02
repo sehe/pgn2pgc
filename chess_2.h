@@ -62,9 +62,12 @@ namespace pgn2pgc::Chess {
         return (a.isWhite() && b.isWhite()) || (a.isBlack() && b.isBlack());
     }
 
-    struct Field {
+    struct RankFile {
         int            rank = 0, file = 0;
-        constexpr auto operator<=>(Field const& rhs) const = default;
+        constexpr auto operator<=>(RankFile const& rhs) const = default;
+
+        constexpr RankFile operator+(RankFile const& rhs) const { return {rank + rhs.rank, file + rhs.file}; }
+        constexpr RankFile operator-(RankFile const& rhs) const { return {rank - rhs.rank, file - rhs.file}; }
     };
 
     struct ChessMove {
@@ -85,26 +88,24 @@ namespace pgn2pgc::Chess {
         };
 
         constexpr ChessMove(int y1 = 0, int x1 = 0, int y2 = 0, int x2 = 0, enum Type kind = normal)
-            : from{y1, x1}, to{y2, x2}, type_(kind) {}
+            : from_{y1, x1}, to_{y2, x2}, type_(kind) {}
 
         constexpr auto operator<=>(ChessMove const& rhs) const = default;
         constexpr bool isPromo() const {
             return type_ == promoKnight || type_ == promoBishop || type_ == promoRook ||
                 type_ == promoQueen || type_ == promoKing;
         }
-        constexpr bool isEnPassant() const { return type_ == whiteEnPassant || type_ == blackEnPassant; }
-        constexpr int  r_from() const { return from.rank; }
-        constexpr int  f_from() const { return from.file; }
-        constexpr int  r_to() const { return to.rank; }
-        constexpr int  f_to() const { return to.file; }
+        constexpr bool     isEnPassant() const { return type_ == whiteEnPassant || type_ == blackEnPassant; }
+        constexpr RankFile from() const { return from_; }
+        constexpr RankFile to() const { return to_; }
         constexpr Type const& type() const { return type_; }
         constexpr Type&       type() { return type_; }
 
       private:
         // row from, file from, row to, file to //!?? Keep signed int so that can
         // use in expressions that depend on signed values
-        Field from, to;
-        Type  type_;
+        RankFile from_, to_;
+        Type     type_;
     };
 
     struct MoveList : std::vector<ChessMove> {
@@ -182,7 +183,7 @@ namespace pgn2pgc::Chess {
 
         GameStatus Status() const { return status_; }
 
-        int enPassant() const { return enPassant_; }
+        int enPassant() const { return enPassantFile_; }
 
         int ranks() const { return gRanks; }
         int files() const { return gFiles; }
@@ -206,6 +207,18 @@ namespace pgn2pgc::Chess {
 
         void display();
 
+#ifdef NDEBUG
+        Square const& at(int rank, int file) const { return fBoard[rank][file]; }
+        Square const& at(RankFile rf) const { return fBoard[rf.rank][rf.file]; }
+        Square&       at(int rank, int file) { return fBoard[rank][file]; }
+        Square&       at(RankFile rf) { return fBoard[rf.rank][rf.file]; }
+#else
+        Square const& at(int rank, int file) const { return fBoard.at(rank).at(file); }
+        Square const& at(RankFile rf) const { return fBoard.at(rf.rank).at(rf.file); }
+        Square&       at(int rank, int file) { return fBoard.at(rank).at(file); }
+        Square&       at(RankFile rf) { return fBoard.at(rf.rank).at(rf.file); }
+#endif
+
       private:
         void        disambiguateMoves(SANQueue&);
         void        disambiguate(ChessMove const&, std::string&, SANQueue&);
@@ -220,12 +233,12 @@ namespace pgn2pgc::Chess {
         using Fields = std::array<Rank, gRanks>;
         Fields fBoard{};
 
-        ToMove     toMove_     = ToMove::endOfGame;
-        GameStatus status_     = GameStatus::notInCheck;
-        unsigned   castle_     = noCastle;
-        int        enPassant_  = allCaptures; // noCaptures, allCaptures, 0 = a file, 1 = b...
-        unsigned   pliesSince_ = 0;
-        unsigned   moveNumber_ = 1;
+        ToMove     toMove_        = ToMove::endOfGame;
+        GameStatus status_        = GameStatus::notInCheck;
+        unsigned   castle_        = noCastle;
+        int        enPassantFile_ = allCaptures; // noCaptures, allCaptures, 0 = a file, 1 = b...
+        unsigned   pliesSince_    = 0;
+        unsigned   moveNumber_    = 1;
 
         //-----------------------------------------------------------------------------
         // pseudoLegal: not castling, and not worrying about being left in check

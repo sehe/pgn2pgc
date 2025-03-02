@@ -32,6 +32,9 @@ namespace pgn2pgc::Chess {
     static constexpr inline char ChessRankToChar(unsigned rank) { return rank + '1'; }
     static constexpr inline int  ChessCharToFile(char file) { return file - 'a'; }
     static constexpr inline int  ChessCharToRank(char rank) { return rank - '1'; }
+    static std::ostream&         operator<<(std::ostream& os, RankFile const& f) {
+        return os << ChessFileToChar(f.file) << ChessRankToChar(f.rank);
+    }
 
     // case insensitive
     inline static constexpr int NumCharsInStr(std::string_view str, char c) {
@@ -135,15 +138,15 @@ namespace pgn2pgc::Chess {
                         return false;
 
                     if (token == "-") {
-                        enPassant_ = noCaptures;
+                        enPassantFile_ = noCaptures;
                     } else {
                         if (!isalpha(token.front()))
                             return false;
 
-                        enPassant_ = tolower(token.front()) - 'a';
-                        assert(enPassant_ > 0);
+                        enPassantFile_ = tolower(token.front()) - 'a';
+                        assert(enPassantFile_ > 0);
 
-                        if (enPassant_ >= gFiles)
+                        if (enPassantFile_ >= gFiles)
                             return false;
                     }
                     // ignore the rank info
@@ -189,7 +192,7 @@ namespace pgn2pgc::Chess {
         std::cout << "\nTo Move:\t " << std::to_underlying(toMove_);
         std::cout << "\nCastle:\t " << castle_;
         std::cout << "\nStatus:\t " << std::to_underlying(status_);
-        std::cout << "\nEnPassant:\t " << enPassant_;
+        std::cout << "\nEnPassant:\t " << enPassantFile_;
         std::cout << "\nMove: " << moveNumber_;
         std::cout << "\nPlies Since:\t " << pliesSince_;
     }
@@ -201,52 +204,45 @@ namespace pgn2pgc::Chess {
         // illegal en-passant
         // general legality -- check etc.. ?? How much checking should be done here?
 
-        if (fBoard[move.r_from()][move.f_from()].isEmpty() ||
-            IsSameColor(fBoard[move.r_from()][move.f_from()], fBoard[move.r_to()][move.f_to()]) ||
-            (move.f_from() == move.f_to() && move.r_from() == move.r_to()) ||
-            (move.isEnPassant() && enPassant_ != allCaptures && enPassant_ != move.f_to()) ||
+        if (at(move.from()).isEmpty() || IsSameColor(at(move.from()), at(move.to())) ||
+            (move.from() == move.to()) ||
+            (move.isEnPassant() && enPassantFile_ != allCaptures && enPassantFile_ != move.to().file) ||
             toMove_ == ToMove::endOfGame) {
             return false;
         }
 
-        fBoard[move.r_to()][move.f_to()]     = fBoard[move.r_from()][move.f_from()];
-        fBoard[move.r_from()][move.f_from()] = noPiece;
+        at(move.to())   = at(move.from());
+        at(move.from()) = noPiece;
 
         switch (move.type()) {
-            case ChessMove::whiteEnPassant: fBoard[move.r_to() - 1][move.f_to()] = noPiece; break;
-            case ChessMove::blackEnPassant: fBoard[move.r_to() + 1][move.f_to()] = noPiece; break;
+            case ChessMove::whiteEnPassant: at(move.to() - RankFile{1, 0}) = noPiece; break;
+            case ChessMove::blackEnPassant: at(move.to() + RankFile{1, 0}) = noPiece; break;
             case ChessMove::whiteCastleKS:
-                fBoard[0][gFiles - 1]      = noPiece;
-                fBoard[0][move.f_to() - 1] = whiteRook;
+                fBoard[0][gFiles - 1]         = noPiece;
+                fBoard[0][move.to().file - 1] = whiteRook;
                 break;
             case ChessMove::whiteCastleQS:
-                fBoard[0][0]               = noPiece;
-                fBoard[0][move.f_to() + 1] = whiteRook;
+                fBoard[0][0]                  = noPiece;
+                fBoard[0][move.to().file + 1] = whiteRook;
                 break;
             case ChessMove::blackCastleKS:
-                fBoard[gRanks - 1][gFiles - 1]      = noPiece;
-                fBoard[gRanks - 1][move.f_to() - 1] = blackRook;
+                fBoard[gRanks - 1][gFiles - 1]         = noPiece;
+                fBoard[gRanks - 1][move.to().file - 1] = blackRook;
                 break;
             case ChessMove::blackCastleQS:
-                fBoard[gRanks - 1][0]               = noPiece;
-                fBoard[gRanks - 1][move.f_to() + 1] = blackRook;
+                fBoard[gRanks - 1][0]                  = noPiece;
+                fBoard[gRanks - 1][move.to().file + 1] = blackRook;
                 break;
             case ChessMove::promoQueen:
-                assert(move.rt() == gRanks - 1 || move.rt() == 0);
-                fBoard[move.r_to()][move.f_to()] =
-                    fBoard[move.r_to()][move.f_to()].isWhite() ? whiteQueen : blackQueen;
+                assert(move.to().rank == gRanks - 1 || move.to().rank == 0);
+                at(move.to()) = at(move.to()).isWhite() ? whiteQueen : blackQueen;
                 break;
             case ChessMove::promoKnight:
-                fBoard[move.r_to()][move.f_to()] =
-                    fBoard[move.r_to()][move.f_to()].isWhite() ? whiteKnight : blackKnight;
+                at(move.to()) = at(move.to()).isWhite() ? whiteKnight : blackKnight;
                 break;
-            case ChessMove::promoRook:
-                fBoard[move.r_to()][move.f_to()] =
-                    fBoard[move.r_to()][move.f_to()].isWhite() ? whiteRook : blackRook;
-                break;
+            case ChessMove::promoRook: at(move.to()) = at(move.to()).isWhite() ? whiteRook : blackRook; break;
             case ChessMove::promoBishop:
-                fBoard[move.r_to()][move.f_to()] =
-                    fBoard[move.r_to()][move.f_to()].isWhite() ? whiteBishop : blackBishop;
+                at(move.to()) = at(move.to()).isWhite() ? whiteBishop : blackBishop;
                 break;
 #if ALLOW_KING_PROMOTION
             case ChessMove::promoKing:
@@ -350,24 +346,22 @@ namespace pgn2pgc::Chess {
 
     bool Board::processMove(ChessMove const& m, MoveList& legal) {
         int enPassant =
-            fBoard[m.r_from()][m.f_from()].isPawn() && abs(m.r_to() - m.r_from()) > 1 ? m.f_to() : noCaptures;
-        unsigned plysSince = !fBoard[m.r_from()][m.f_from()].isPawn() && fBoard[m.r_to()][m.f_to()].isEmpty()
-            ? pliesSince_ + 1
-            : 0;
+            at(m.from()).isPawn() && abs(m.to().rank - m.from().rank) > 1 ? m.to().file : noCaptures;
+        unsigned plysSince = !at(m.from()).isPawn() && at(m.to()).isEmpty() ? pliesSince_ + 1 : 0;
 
         // eliminate castling move's
         int castle = castle_;
-        switch (fBoard[m.r_from()][m.f_from()].contents()) {
+        switch (at(m.from()).contents()) {
             case whiteKing: castle &= ~(whiteKS | whiteQS); break;
             case blackKing: castle &= ~(blackKS | blackQS); break;
             case whiteRook:
-                if (m.f_from() < files() / 2)
+                if (m.from().file < files() / 2)
                     castle &= ~whiteQS;
                 else
                     castle &= ~whiteKS;
                 break;
             case blackRook:
-                if (m.f_from() < files() / 2)
+                if (m.from().file < files() / 2)
                     castle &= ~blackQS;
                 else
                     castle &= ~blackKS;
@@ -377,10 +371,10 @@ namespace pgn2pgc::Chess {
 
         // isLegal()
         if (toMove_ != ToMove::endOfGame && applyMove(m)) {
-            status_     = CheckStatus(legal);
-            enPassant_  = enPassant;
-            pliesSince_ = plysSince;
-            castle_     = castle;
+            status_        = CheckStatus(legal);
+            enPassantFile_ = enPassant;
+            pliesSince_    = plysSince;
+            castle_        = castle;
 
             if (status_ == GameStatus::notInCheck ||
                 status_ == GameStatus::inCheck) { // otherwise end of game
@@ -404,16 +398,15 @@ namespace pgn2pgc::Chess {
              rankConflict = false; // use the file in case of a conflict, and rank if no file
                                    // conflict, and both if necessary (e.g. there are three
                                    // pieces accessing the same square)
-        switch (fBoard[move.r_from()][move.f_from()].contents()) {
+        switch (at(move.from()).contents()) {
             case whitePawn:
             case blackPawn:
 
-                o << ChessFileToChar(move.f_from());
-                if (move.f_from() != move.f_to()) {
-                    o << 'x' << ChessFileToChar(move.f_to())
-                      << ChessRankToChar(move.r_to()); // Capture; use style "exd5"
+                o << ChessFileToChar(move.from().file);
+                if (move.from().file != move.to().file) {
+                    o << 'x' << move.to(); // Capture; use style "exd5"
                 } else {
-                    o << ChessRankToChar(move.r_to()); // Non-capture; use style "e5"
+                    o << ChessRankToChar(move.to().rank); // Non-capture; use style "e5"
                 }
                 switch (move.type()) {
                     case ChessMove::promoBishop: o << "=B"; break;
@@ -429,14 +422,13 @@ namespace pgn2pgc::Chess {
             case whiteKing:
             case blackKing:
                 // castling
-                if (move.r_from() == move.r_to() &&
-                            move.r_from() == (fBoard[move.r_from()][move.f_from()].isWhite())
+                if (move.from().rank == move.to().rank && move.from().rank == (at(move.from()).isWhite())
                         ? 0
                         : ranks() - 1) {
-                    if ((signed)move.f_from() - (signed)move.f_to() < -1) {
+                    if (move.from().file - move.to().file < -1) {
                         o << "O-O";
                         break;
-                    } else if ((signed)move.f_from() - (signed)move.f_to() > 1) {
+                    } else if (move.from().file - move.to().file > 1) {
                         o << "O-O-O";
                         break;
                     }
@@ -444,41 +436,42 @@ namespace pgn2pgc::Chess {
 
                 [[fallthrough]];
             default:
-                o << (char)toupper(fBoard[move.r_from()][move.f_from()].pieceToChar());
+                o << (char)toupper(at(move.from()).pieceToChar());
 
                 for (int i = 0; i < ssize(legal); ++i) {
                     if (legal[i] != move && // not the same move
-                        legal[i].r_to() == move.r_to() &&
-                        legal[i].f_to() == move.f_to() && // the same 'to' square
-                        fBoard[move.r_from()][move.f_from()].contents() ==
-                            fBoard[legal[i].r_from()][legal[i].f_from()].contents()) // same type of piece
+                        legal[i].to().rank == move.to().rank &&
+                        legal[i].to().file == move.to().file && // the same 'to' square
+                        at(move.from()).contents() ==
+                            fBoard[legal[i].from().rank][legal[i].from().file]
+                                .contents()) // same type of piece
                     {
                         conflict = true;
-                        if (move.r_from() == legal[i].r_from())
+                        if (move.from().rank == legal[i].from().rank)
                             rankConflict = true;
-                        else if (move.f_from() == legal[i].f_from())
+                        else if (move.from().file == legal[i].from().file)
                             fileConflict = true;
                     }
                 }
                 // resolve if the piece is on same file of rank (if there are three same
                 // pieces then use file and rank)
                 if (conflict && !rankConflict && !fileConflict) {
-                    o << ChessFileToChar(move.f_from());
+                    o << ChessFileToChar(move.from().file);
                 } else if (conflict && !rankConflict) {
-                    o << ChessRankToChar(move.r_from());
+                    o << ChessRankToChar(move.from().rank);
                 } else if (fileConflict && rankConflict) {
-                    o << ChessFileToChar(move.f_from()) << ChessRankToChar(move.r_from());
+                    o << ChessFileToChar(move.from().file) << ChessRankToChar(move.from().rank);
                 } else if (rankConflict) {
-                    o << ChessFileToChar(move.f_from());
+                    o << ChessFileToChar(move.from().file);
                 }
 
                 // determine if it's a capture
-                if (!fBoard[move.r_to()][move.f_to()].isEmpty()) {
+                if (!at(move.to()).isEmpty()) {
                     o << 'x';
                 }
 
                 // destination square
-                o << ChessFileToChar(move.f_to()) << ChessRankToChar(move.r_to());
+                o << ChessFileToChar(move.to().file) << ChessRankToChar(move.to().rank);
 
                 // Check or Checkmate
                 //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
@@ -563,19 +556,19 @@ namespace pgn2pgc::Chess {
             if (san.length() == 1) // f
             {
                 for (size_t i = 0; i < legal.size(); ++i) {
-                    if (legal[i].f_from() == ChessCharToFile(san[0]) &&
+                    if (legal[i].from().file == ChessCharToFile(san[0]) &&
                         (move.isPromo() ? move.type() == legal[i].type() : true) &&
-                        fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                        fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                         return legal[i];
                     }
                 }
             } else if (san.length() == 2 && isdigit(san[1])) // f4
             {
                 for (size_t i = 0; i < legal.size(); ++i)
-                    if (legal[i].f_from() == ChessCharToFile(san[0]) &&
-                        legal[i].r_to() == ChessCharToRank(san[1]) &&
+                    if (legal[i].from().file == ChessCharToFile(san[0]) &&
+                        legal[i].to().rank == ChessCharToRank(san[1]) &&
                         (move.isPromo() ? move.type() == legal[i].type() : true) &&
-                        fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                        fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                         return legal[i];
                     }
 
@@ -583,31 +576,31 @@ namespace pgn2pgc::Chess {
             {
                 assert(!isdigit(san[1]));
                 for (size_t i = 0; i < legal.size(); ++i)
-                    if (legal[i].f_from() == ChessCharToFile(san[0]) &&
-                        legal[i].f_to() == ChessCharToFile(san[1]) &&
+                    if (legal[i].from().file == ChessCharToFile(san[0]) &&
+                        legal[i].to().file == ChessCharToFile(san[1]) &&
                         (move.isPromo() ? move.type() == legal[i].type() : true) &&
-                        fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                        fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                         return legal[i];
                     }
             } else if (san.length() == 3) // ef4
             {
                 for (size_t i = 0; i < legal.size(); ++i)
-                    if (legal[i].f_from() == ChessCharToFile(san[0]) &&
-                        legal[i].f_to() == ChessCharToFile(san[1]) &&
-                        legal[i].r_to() == ChessCharToRank(san[2]) &&
+                    if (legal[i].from().file == ChessCharToFile(san[0]) &&
+                        legal[i].to().file == ChessCharToFile(san[1]) &&
+                        legal[i].to().rank == ChessCharToRank(san[2]) &&
                         (move.isPromo() ? move.type() == legal[i].type() : true) &&
-                        fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                        fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                         return legal[i];
                     }
             } else if (san.length() == 4) // e3f4
             {
                 for (size_t i = 0; i < legal.size(); ++i)
-                    if (legal[i].f_from() == ChessCharToFile(san[0]) &&
-                        legal[i].r_from() == ChessCharToRank(san[1]) &&
-                        legal[i].f_to() == ChessCharToFile(san[2]) &&
-                        legal[i].r_to() == ChessCharToRank(san[3]) &&
+                    if (legal[i].from().file == ChessCharToFile(san[0]) &&
+                        legal[i].from().rank == ChessCharToRank(san[1]) &&
+                        legal[i].to().file == ChessCharToFile(san[2]) &&
+                        legal[i].to().rank == ChessCharToRank(san[3]) &&
                         (move.isPromo() ? move.type() == legal[i].type() : true) &&
-                        fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                        fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                         return legal[i];
                     }
             }
@@ -617,23 +610,23 @@ namespace pgn2pgc::Chess {
                 throw InvalidSAN{constSAN};
 
             for (size_t i = 0; i < legal.size(); ++i)
-                if (legal[i].f_to() == ChessCharToFile(san[sanLength - 2]) &&
-                    legal[i].r_to() == ChessCharToRank(san[sanLength - 1]) &&
-                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                if (legal[i].to().file == ChessCharToFile(san[sanLength - 2]) &&
+                    legal[i].to().rank == ChessCharToRank(san[sanLength - 1]) &&
+                    fBoard[legal[i].from().rank][legal[i].from().file] == piece) {
                     switch (sanLength) {
                         case 3: return legal[i]; // Nf3
                         case 4:
-                            if (isdigit(san[1]) && legal[i].r_from() == ChessCharToRank(san[1])) // N1f3
+                            if (isdigit(san[1]) && legal[i].from().rank == ChessCharToRank(san[1])) // N1f3
                             {
                                 return legal[i];
-                            } else if (legal[i].f_from() == ChessCharToFile(san[1])) // Ngf3
+                            } else if (legal[i].from().file == ChessCharToFile(san[1])) // Ngf3
                             {
                                 return legal[i];
                             }
                             break;
                         case 5:
-                            if (legal[i].f_from() == ChessCharToFile(san[1]) &&
-                                legal[i].r_from() == ChessCharToFile(san[2])) // Ng1f3
+                            if (legal[i].from().file == ChessCharToFile(san[1]) &&
+                                legal[i].from().rank == ChessCharToFile(san[2])) // Ng1f3
                             {
                                 return legal[i];
                             }
@@ -766,8 +759,8 @@ namespace pgn2pgc::Chess {
             b.applyMove(m);
             b.switchMove();
 
-            if (b.fBoard[m.r_to()][m.f_to()] == whiteKing || b.fBoard[m.r_to()][m.f_to()] == blackKing) {
-                if (b.canCaptureSquare(m.r_to(), m.f_to())) {
+            if (b.at(m.to()) == whiteKing || b.at(m.to()) == blackKing) {
+                if (b.canCaptureSquare(m.to().rank, m.to().file)) {
                     legal.remove(i);
                     for (unsigned j = 0; j < allSAN.size(); ++j)
                         if (allSAN[j].move() == m) {
@@ -795,16 +788,16 @@ namespace pgn2pgc::Chess {
     std::string Board::ambiguousSAN(ChessMove const& m) {
         std::ostringstream o;
 
-        switch (fBoard[m.r_from()][m.f_from()].contents()) {
+        switch (at(m.from()).contents()) {
             case whitePawn:
             case blackPawn:
-                o << ChessFileToChar(m.f_from());
+                o << ChessFileToChar(m.from().file);
 
-                if (m.f_from() != m.f_to()) {
-                    o << 'x' << ChessFileToChar(m.f_to())
-                      << ChessRankToChar(m.r_to()); // Capture; use style "exd5"
+                if (m.from().file != m.to().file) {
+                    o << 'x' << ChessFileToChar(m.to().file)
+                      << ChessRankToChar(m.to().rank); // Capture; use style "exd5"
                 } else {
-                    o << ChessRankToChar(m.r_to()); // Non-capture; use style "e5"
+                    o << ChessRankToChar(m.to().rank); // Non-capture; use style "e5"
                 }
                 switch (m.type()) {
                     case ChessMove::promoBishop: o << "=B"; break;
@@ -821,13 +814,12 @@ namespace pgn2pgc::Chess {
             case whiteKing:
             case blackKing:
                 // castling
-                if (m.r_from() == m.r_to() && m.r_from() == (fBoard[m.r_from()][m.f_from()].isWhite())
-                        ? 0
-                        : ranks() - 1) {
-                    if ((signed)m.f_from() - (signed)m.f_to() < -1) {
+                if (m.from().rank == m.to().rank && m.from().rank == (at(m.from()).isWhite()) ? 0
+                                                                                              : ranks() - 1) {
+                    if ((signed)m.from().file - (signed)m.to().file < -1) {
                         o << "O-O";
                         break;
-                    } else if ((signed)m.f_from() - (signed)m.f_to() > 1) {
+                    } else if ((signed)m.from().file - (signed)m.to().file > 1) {
                         o << "O-O-O";
                         break;
                     }
@@ -835,14 +827,14 @@ namespace pgn2pgc::Chess {
 
                 [[fallthrough]];
             default:
-                o << (char)toupper(fBoard[m.r_from()][m.f_from()].pieceToChar());
+                o << (char)toupper(at(m.from()).pieceToChar());
 
                 // determine if it's a capture
-                if (!fBoard[m.r_to()][m.f_to()].isEmpty())
+                if (!at(m.to()).isEmpty())
                     o << 'x';
 
                 // destination square
-                o << ChessFileToChar(m.f_to()) << ChessRankToChar(m.r_to());
+                o << ChessFileToChar(m.to().file) << ChessRankToChar(m.to().rank);
         }
         return std::move(o).str();
     }
@@ -1175,15 +1167,14 @@ namespace pgn2pgc::Chess {
             bool conflict = false, rankConflict = false, fileConflict = false;
             for (int i = 0; i < ssize(all); ++i) {
                 auto& altMv = all[i].move();
-                if (altMv.r_to() == move.r_to() && altMv.f_to() == move.f_to() && // the same 'to' square
-                    altMv != move &&                                              // not the same move
-                    fBoard[move.r_from()][move.f_from()] ==
-                        fBoard[altMv.r_from()][altMv.f_from()]) // same type of piece
+                if (altMv.to() == move.to() &&           // the same 'to' square
+                    altMv != move &&                     // not the same move
+                    at(move.from()) == at(altMv.from())) // same type of piece
                 {
                     conflict = true;
-                    if (move.r_from() == altMv.r_from())
+                    if (move.from().rank == altMv.from().rank)
                         rankConflict = true;
-                    else if (move.f_from() == altMv.f_from())
+                    else if (move.from().file == altMv.from().file)
                         fileConflict = true;
                     if (rankConflict && fileConflict)
                         break; // if you have two conflicts, no need to continue
@@ -1192,13 +1183,13 @@ namespace pgn2pgc::Chess {
             // resolve if the piece is on same file of rank (if there are three same
             // pieces then use file and rank)
             if (conflict && !rankConflict && !fileConflict) {
-                san.insert(1, 1, ChessFileToChar(move.f_from()));
+                san.insert(1, 1, ChessFileToChar(move.from().file));
             } else if (conflict && !rankConflict) {
-                san.insert(1, 1, ChessRankToChar(move.r_from()));
+                san.insert(1, 1, ChessRankToChar(move.from().rank));
             } else if (fileConflict && rankConflict) {
-                san.insert(1, {ChessFileToChar(move.f_from()), ChessRankToChar(move.r_from())});
+                san.insert(1, {ChessFileToChar(move.from().file), ChessRankToChar(move.from().rank)});
             } else if (rankConflict) {
-                san.insert(1, 1, ChessFileToChar(move.f_from()));
+                san.insert(1, 1, ChessFileToChar(move.from().file));
             }
         }
     }
