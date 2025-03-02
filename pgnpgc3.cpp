@@ -1,5 +1,4 @@
 #include "stpwatch.h" // profiling
-StopWatch gTimer[10];
 
 #include <assert.h>
 #include <cstring>
@@ -151,7 +150,7 @@ enum E_gameTermination {
     draw
 }; //?!! Use later to determine if original STR Result is correct
 
-E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostream& pgc) {
+E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostream& pgc) try {
     static Board gPreviousGamePos; // used in case their is something other than a
                                    // move sequence before a RAV
     static int gRAVLevels;         // used to finish putting RAVEnd markers, and to detect
@@ -160,7 +159,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     enum E_reasonToEndSequence { RAVBegin, RAVEnd, NAG, escape, other } reasonToBreak = other;
     E_gameTermination gameResult                                                      = none;
 
-    int8_t      NAGVal;
+    int8_t      NAGVal = {};
     std::string escapeToken;
 
     auto const moves = [&] {
@@ -271,7 +270,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             } else if (token[0] == '$') // NAG
             {
                 reasonToBreak       = NAG;
-                NAGVal              = atoi(&token.c_str()[1]);
+                NAGVal              = atoi(token.c_str() + 1);
                 processMoveSequence = false;
             } else if (token[0] == '.') // black to move (...)
             {
@@ -296,7 +295,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             }
         }
         return moves;
-    }(); // FIXME handle exception
+    }();
 
     // Process Moves
     //!!? Only need to indicate zero moves if the game is empty and not using
@@ -310,51 +309,39 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
             pgc << kMarkerLongMoveSequence << moveSize[0] << moveSize[1];
         }
 
-        gTimer[4].start();
-        for (size_t i = 0; auto& mv : moves) {
-            SANQueue SANMoves;
-            MoveList allMoves;
-            gTimer[2].start();
-            game.genLegalMoveSet(allMoves, SANMoves); // 57%
-            gTimer[2].stop();
+        gTimers[__FUNCTION__].timed([&] {
+            for (size_t i = 0; auto& mv : moves) {
+                SANQueue SANMoves;
+                MoveList allMoves;
+                TIMED(game.genLegalMoveSet(allMoves, SANMoves));
 
-            gTimer[3].start();
-            ChessMove cm;
-            if (!game.algebraicToMove(cm, mv, allMoves)) {
-                std::cout << "\nIllegal move: " << mv;
-                std::cout << "\n";
-                game.display();
-                return illegalMove; // move is not legal
-            }
-            std::string san;
+                auto [cm, san] = gTimers["ParseSAN & toSAN"].timed([&] {
+                    auto cm = game.parseSAN(mv, allMoves);
+                    return std::tuple(cm, game.toSAN(cm, allMoves));
+                });
 
-            game.moveToAlgebraic(san, cm, allMoves);
-            gTimer[3].stop();
+                assert(FindElement(san, SANMoves) != -1);
 
-            assert(FindElement(san, SANMoves) != -1);
+                pgc << (int8_t)FindElement(san, SANMoves);
 
-            pgc << (int8_t)FindElement(san, SANMoves);
-
-            if (i == (moves.size() - 1)) {
-                if (reasonToBreak == RAVBegin) {
-                    pgc << kMarkerRAVBegin;
-                    Board temp = game;
-                    gameResult = ProcessMoveSequence(temp, pgn, pgc);
-                } else {
-                    // their can't be two RAV's at the same level for the same
-                    // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
-                    // (pgn formal syntax)
-                    gPreviousGamePos = game;
+                if (i == (moves.size() - 1)) {
+                    if (reasonToBreak == RAVBegin) {
+                        pgc << kMarkerRAVBegin;
+                        Board temp = game;
+                        gameResult = ProcessMoveSequence(temp, pgn, pgc);
+                    } else {
+                        // their can't be two RAV's at the same level for the same
+                        // move, instead use 1. (1. (1.)) 1... not 1. (1.)(1.) 1...
+                        // (pgn formal syntax)
+                        gPreviousGamePos = game;
+                    }
                 }
+
+                TIMED(game.processMove(cm, allMoves));
+
+                ++i;
             }
-
-            gTimer[7].start();
-            game.processMove(cm, allMoves);
-            gTimer[7].stop();
-
-            ++i;
-        }
-        gTimer[4].stop();
+        });
 
     } else if (reasonToBreak == RAVBegin) // e.g. in case their is a NAG in before the RAVBegin
     {
@@ -379,7 +366,7 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
     }
 
     if (gRAVLevels < 0)
-        return RAVUnderflow;
+        throw RAVUnderflow;
 
     if (gameResult != none && gRAVLevels)
         while (gRAVLevels) {
@@ -388,6 +375,12 @@ E_gameTermination ProcessMoveSequence(Board& game, char const*& pgn, std::ostrea
         }
 
     return gameResult;
+} catch (MoveError const& me) {
+    std::cout << "\nIllegal move: " << me.what() << std::endl;
+    game.display();
+    return illegalMove; // move is not legal
+} catch (E_gameTermination e) {
+    return e;
 }
 
 // convert game from .pgn format to .pgc format
@@ -449,12 +442,10 @@ E_gameTermination PgnToPgc(char const* pgn, char const*& endOfGame, std::ostream
     E_gameTermination processGame = none;
     // Board          previousBoard = game;     // used for RAV
 
-    // gTimer[3].start();
     while (processGame == none && *pgn != '\0') // whole game
     {
         processGame = ProcessMoveSequence(game, pgn, pgc);
     }
-    // gTimer[3].stop();
     pgc << kMarkerGameDataEnd;
 
     endOfGame = pgn;
@@ -492,10 +483,8 @@ int PgnToPgcDataBase(std::istream& pgn, std::ostream& pgc) {
         gameBufferCurrent[received] = '\0';
 
         char const* endOfGame = 0;
-        //      gTimer[2].start();
         ++totalGames;
-        E_gameTermination result = PgnToPgc(gameBuffer, endOfGame, pgcGame);
-        //      gTimer[2].stop();
+        E_gameTermination result = TIMED(PgnToPgc(gameBuffer, endOfGame, pgcGame));
 
         switch (result) {
             case illegalMove: std::cout << "\n Illegal move."; break;
@@ -552,159 +541,151 @@ bool IsFileNameReserved(fs::path const& fileName);
 
 int main(int argc, char* argv[]) {
     // INITIALIZE
-    gTimer[0].start();
+    gTimers[__FUNCTION__].timed([&] {
+        fs::path inputFileName, outputFileName;
 
-    fs::path inputFileName, outputFileName;
+        // If either inputFileName or outputFile name called "PRN", "LPT1", or
+        // "LPT2" the program will give unexpected results.  These are reserved names
+        // for the printer.
 
-    // If either inputFileName or outputFile name called "PRN", "LPT1", or
-    // "LPT2" the program will give unexpected results.  These are reserved names
-    // for the printer.
+        // argc, number of elements in argv[]
+        // argv[0], undefined (not used)
+        // argv[1], input filename (optional)
+        // argv[2], ouput filename (optional)
+        assert(argc);
 
-    // argc, number of elements in argv[]
-    // argv[0], undefined (not used)
-    // argv[1], input filename (optional)
-    // argv[2], ouput filename (optional)
-    assert(argc);
+        if (argc > 3) {
+            std::cout << "\nUsage: pgn2pgc [source_file [report_file]]\n";
+            return EXIT_FAILURE;
+        }
 
-    if (argc > 3) {
-        std::cout << "\nUsage: pgn2pgc [source_file [report_file]]\n";
-        return EXIT_FAILURE;
-    }
-
-    // get the name of the input file
-    if (argc >= 2) {
-        inputFileName = argv[1];
-    } else {
-        // prompt user for file name
-        std::cout << "\nWhat is the name of the PGN file to "
-                     "be converted? ";
-        if (std::string temp; getline(std::cin, temp))
-            inputFileName = temp;
-    }
-
-    // If either inputFileName or outputFile name are called "PRN", "LPT1", or
-    // "LPT2" the program will give unexpected results.  These are reserved names
-    // for the printer.
-
-    if (IsFileNameReserved(inputFileName)) {
-        ReportFileError(E_nameReserved, inputFileName);
-
-        return EXIT_FAILURE;
-    }
-
-    // open the input stream
-    std::ifstream inputStream(inputFileName, std::ios::binary);
-
-    // was the file opened successfully?
-    if (!inputStream) {
-        ReportFileError(E_openForInput, inputFileName);
-        return EXIT_FAILURE;
-    }
-
-    if (argc >= 3) {
-        outputFileName = argv[2];
-    }
-
-    // get the file name for output from user if the file already exists ask the
-    // user for confirmation that they want to overwrite it.  If they do not, ask
-    // for a new file name.
-    bool confirmFile = true;
-
-    do // use a do instead of a while to keep the loop entry condition logical
-    {
-        // get the name of the ouput file
-        if (argc < 3 || !confirmFile) {
+        // get the name of the input file
+        if (argc >= 2) {
+            inputFileName = argv[1];
+        } else {
             // prompt user for file name
-            std::cout << "\nWhat is the name of the PGC file to be created? ";
+            std::cout << "\nWhat is the name of the PGN file to "
+                         "be converted? ";
             if (std::string temp; getline(std::cin, temp))
-                outputFileName = temp;
+                inputFileName = temp;
         }
 
-        if (exists(outputFileName)) {
-            // ask the user if they're sure they want to overwrite the file
-            std::cout << "\nFile " << outputFileName
-                      << " already exists, do you want to overwrite it? (y/n) ";
+        // If either inputFileName or outputFile name are called "PRN", "LPT1", or
+        // "LPT2" the program will give unexpected results.  These are reserved names
+        // for the printer.
 
-            char response; // we only want to use the first character
+        if (IsFileNameReserved(inputFileName)) {
+            ReportFileError(E_nameReserved, inputFileName);
 
-            // only read in the first character and then ignore the rest until EOL
-            std::cin >> response;
-            std::cin.ignore(INT_MAX, '\n');
-
-            confirmFile = (tolower(response) == 'y');
-        }
-    } while (!confirmFile);
-
-    if (IsFileNameReserved(outputFileName)) {
-        ReportFileError(E_nameReserved, outputFileName);
-
-        return EXIT_FAILURE;
-    }
-
-    // if the input file is the same as the output file, use a temporary file
-    // and then delete the old file and rename the temporary file.
-    bool inputOutputSameFile = inputFileName.lexically_normal() == outputFileName.lexically_normal();
-    if (inputOutputSameFile)
-        outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
-
-    // open the ouput stream
-    std::ofstream outputStream(outputFileName, std::ios::trunc | std::ios::binary);
-
-    // was the file opened successfully?
-    if (!outputStream) {
-        ReportFileError(E_openForOutput, outputFileName);
-        return EXIT_FAILURE;
-    }
-
-    // Let user know that what we are about to do
-    std::cout << "\nConverting the PGN file " << inputFileName
-              << "\n to PGC format and sending the output to file " << outputFileName << "";
-
-    //    gTimer[1].start();
-    unsigned gameProcessed = PgnToPgcDataBase(inputStream, outputStream);
-    //    gTimer[1].stop();
-
-    std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " " << gameProcessed << " game"
-              << (gameProcessed == 1 ? "" : "s") << " processed.";
-
-    if (!outputStream.good()) {
-        ReportFileError(E_output, outputFileName);
-        return EXIT_FAILURE;
-    }
-
-    if (inputOutputSameFile) {
-        inputStream.close();
-        outputStream.close();
-
-        // delete old file
-        std::error_code ec;
-        remove(inputFileName, ec);
-        if (ec) {
-            // print the appropriate message
-            std::cerr << "Unable to delete old input file " + ec.message() << std::endl;
             return EXIT_FAILURE;
         }
 
-        // rename temp file to old file
-        fs::rename(outputFileName, inputFileName, ec);
+        // open the input stream
+        std::ifstream inputStream(inputFileName, std::ios::binary);
 
-        if (ec) // non-zero on failure
+        // was the file opened successfully?
+        if (!inputStream) {
+            ReportFileError(E_openForInput, inputFileName);
+            return EXIT_FAILURE;
+        }
+
+        if (argc >= 3) {
+            outputFileName = argv[2];
+        }
+
+        // get the file name for output from user if the file already exists ask the
+        // user for confirmation that they want to overwrite it.  If they do not, ask
+        // for a new file name.
+        bool confirmFile = true;
+
+        do // use a do instead of a while to keep the loop entry condition logical
         {
-            // print the appropriate message
-            std::cerr << "Unable to rename the temporary file " + ec.message() << std::endl;
+            // get the name of the ouput file
+            if (argc < 3 || !confirmFile) {
+                // prompt user for file name
+                std::cout << "\nWhat is the name of the PGC file to be created? ";
+                if (std::string temp; getline(std::cin, temp))
+                    outputFileName = temp;
+            }
+
+            if (exists(outputFileName)) {
+                // ask the user if they're sure they want to overwrite the file
+                std::cout << "\nFile " << outputFileName
+                          << " already exists, do you want to overwrite it? (y/n) ";
+
+                char response; // we only want to use the first character
+
+                // only read in the first character and then ignore the rest until EOL
+                std::cin >> response;
+                std::cin.ignore(INT_MAX, '\n');
+
+                confirmFile = (tolower(response) == 'y');
+            }
+        } while (!confirmFile);
+
+        if (IsFileNameReserved(outputFileName)) {
+            ReportFileError(E_nameReserved, outputFileName);
+
             return EXIT_FAILURE;
         }
-    }
 
-    // If we get to here than their were no file errors
-    std::cout << "\n\nOperation was successful." << std::endl;
+        // if the input file is the same as the output file, use a temporary file
+        // and then delete the old file and rename the temporary file.
+        bool inputOutputSameFile = inputFileName.lexically_normal() == outputFileName.lexically_normal();
+        if (inputOutputSameFile)
+            outputFileName = fs::temp_directory_path() / "t_wcXXXXXX";
 
-    gTimer[0].stop();
+        // open the ouput stream
+        std::ofstream outputStream(outputFileName, std::ios::trunc | std::ios::binary);
 
-    // SEHE TODO
-    // for (int debugI = 0; debugI < sizeof(gTimer) / sizeof(gTimer[0]); ++debugI)
-    // { gTimer[debugI].time();
-    //}
+        // was the file opened successfully?
+        if (!outputStream) {
+            ReportFileError(E_openForOutput, outputFileName);
+            return EXIT_FAILURE;
+        }
+
+        // Let user know that what we are about to do
+        std::cout << "\nConverting the PGN file " << inputFileName
+                  << "\n to PGC format and sending the output to file " << outputFileName << "";
+
+        unsigned gameProcessed = TIMED(PgnToPgcDataBase(inputStream, outputStream));
+
+        std::cout << "\n\nThere " << (gameProcessed == 1 ? "was" : "were") << " " << gameProcessed << " game"
+                  << (gameProcessed == 1 ? "" : "s") << " processed.";
+
+        if (!outputStream.good()) {
+            ReportFileError(E_output, outputFileName);
+            return EXIT_FAILURE;
+        }
+
+        if (inputOutputSameFile) {
+            inputStream.close();
+            outputStream.close();
+
+            // delete old file
+            std::error_code ec;
+            remove(inputFileName, ec);
+            if (ec) {
+                // print the appropriate message
+                std::cerr << "Unable to delete old input file " + ec.message() << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            // rename temp file to old file
+            fs::rename(outputFileName, inputFileName, ec);
+
+            if (ec) // non-zero on failure
+            {
+                // print the appropriate message
+                std::cerr << "Unable to rename the temporary file " + ec.message() << std::endl;
+                return EXIT_FAILURE;
+            }
+        }
+
+        // If we get to here than their were no file errors
+        std::cout << "\n\nOperation was successful." << std::endl;
+        return 0;
+    });
 
     return EXIT_SUCCESS;
 }

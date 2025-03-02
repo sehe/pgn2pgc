@@ -8,15 +8,21 @@
 #include "stpwatch.h"
 #include "strparse.h"
 
-extern StopWatch gTimer[10];
-
 static constexpr inline char ChessFileToChar(unsigned file) { return file + 'a'; }
 static constexpr inline char ChessRankToChar(unsigned rank) { return rank + '1'; }
 static constexpr inline int  ChessCharToFile(char file) { return file - 'a'; }
 static constexpr inline int  ChessCharToRank(char rank) { return rank - '1'; }
 
-// in case you already know all of the chessMoves to save processing time (very
-constexpr inline char ChessSquare::pieceToChar() {
+// case insensitive
+inline static constexpr int NumCharsInStr(std::string_view str, char c) {
+    int count = 0;
+    for (auto ch : str)
+        if (toupper(ch) == toupper(c))
+            ++count;
+    return count;
+}
+
+constexpr inline char ChessSquare::pieceToChar() const {
     switch (occ_) {
         case whitePawn: return 'P';
         case blackPawn: return 'p';
@@ -59,15 +65,7 @@ static constexpr inline ChessSquare LetterToSquare(char SAN_FEN_Letter) {
 // position : to move : castling : (50*2) - plies till draw : current move
 // number "RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr w KQkq - 0 1"
 
-Board::Board()
-    : toMove_(endOfGame)
-    , status_(notInCheck)
-    , castle_(noCastle)
-    , enPassant_(allCaptures)
-    , pliesSince_(0)
-    , moveNumber_(1) {
-    processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-}
+Board::Board() { processFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); }
 
 bool Board::processFEN(std::string_view FEN) {
     auto split = [](auto sv, char delim) {
@@ -82,7 +80,7 @@ bool Board::processFEN(std::string_view FEN) {
                     for (int j = 0; auto ch : rank) {
                         if (isdigit(ch))
                             for (auto n = ch - '0'; n--;)
-                                fBoard.at(i).at(j++) = ChessSquare(ChessSquare::empty);
+                                fBoard.at(i).at(j++) = ChessSquare::empty;
                         else
                             fBoard.at(i).at(j++) = LetterToSquare(ch);
                     }
@@ -179,71 +177,62 @@ void Board::display() {
 
 // true on success
 //??!! No checking is done?
-bool Board::move(ChessMove const& move) {
+bool Board::applyMove(ChessMove const& move) {
     // can't move an empty square or capture your own piece
     // illegal en-passant
     // general legality -- check etc.. ?? How much checking should be done here?
 
-    if (fBoard[move.rf()][move.ff()].isEmpty() ||
-        IsSameColor(fBoard[move.rf()][move.ff()], fBoard[move.rt()][move.ft()]) ||
-        (move.ff() == move.ft() && move.rf() == move.rt()) ||
-        (move.isEnPassant() && enPassant_ != allCaptures && enPassant_ != move.ft()) ||
+    if (fBoard[move.r_from()][move.f_from()].isEmpty() ||
+        IsSameColor(fBoard[move.r_from()][move.f_from()], fBoard[move.r_to()][move.f_to()]) ||
+        (move.f_from() == move.f_to() && move.r_from() == move.r_to()) ||
+        (move.isEnPassant() && enPassant_ != allCaptures && enPassant_ != move.f_to()) ||
         toMove_ == endOfGame) {
         return false;
     }
 
-    fBoard[move.rt()][move.ft()] = fBoard[move.rf()][move.ff()];
-    fBoard[move.rf()][move.ff()] = ChessSquare(ChessSquare::empty);
+    fBoard[move.r_to()][move.f_to()] = fBoard[move.r_from()][move.f_from()];
+    fBoard[move.r_from()][move.f_from()] = ChessSquare::empty;
 
     switch (move.type()) {
-        case ChessMove::whiteEnPassant:
-            fBoard[move.rt() - 1][move.ft()] = ChessSquare(ChessSquare::empty);
-            break;
-        case ChessMove::blackEnPassant:
-            fBoard[move.rt() + 1][move.ft()] = ChessSquare(ChessSquare::empty);
-            break;
+        case ChessMove::whiteEnPassant: fBoard[move.r_to() - 1][move.f_to()] = ChessSquare::empty; break;
+        case ChessMove::blackEnPassant: fBoard[move.r_to() + 1][move.f_to()] = ChessSquare::empty; break;
         case ChessMove::whiteCastleKS:
-            fBoard[0][gFiles - 1]    = ChessSquare(ChessSquare::empty);
-            fBoard[0][move.ft() - 1] = ChessSquare(ChessSquare::whiteRook);
+            fBoard[0][gFiles - 1]    = ChessSquare::empty;
+            fBoard[0][move.f_to() - 1] = ChessSquare::whiteRook;
             break;
         case ChessMove::whiteCastleQS:
-            fBoard[0][0]             = ChessSquare(ChessSquare::empty);
-            fBoard[0][move.ft() + 1] = ChessSquare(ChessSquare::whiteRook);
+            fBoard[0][0]             = ChessSquare::empty;
+            fBoard[0][move.f_to() + 1] = ChessSquare::whiteRook;
             break;
         case ChessMove::blackCastleKS:
-            fBoard[gRanks - 1][gFiles - 1]    = ChessSquare(ChessSquare::empty);
-            fBoard[gRanks - 1][move.ft() - 1] = ChessSquare(ChessSquare::blackRook);
+            fBoard[gRanks - 1][gFiles - 1]    = ChessSquare::empty;
+            fBoard[gRanks - 1][move.f_to() - 1] = ChessSquare::blackRook;
             break;
         case ChessMove::blackCastleQS:
-            fBoard[gRanks - 1][0]             = ChessSquare(ChessSquare::empty);
-            fBoard[gRanks - 1][move.ft() + 1] = ChessSquare(ChessSquare::blackRook);
+            fBoard[gRanks - 1][0]             = ChessSquare::empty;
+            fBoard[gRanks - 1][move.f_to() + 1] = ChessSquare::blackRook;
             break;
         case ChessMove::promoQueen:
             assert(move.rt() == gRanks - 1 || move.rt() == 0);
-            fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
-                ? ChessSquare(ChessSquare::whiteQueen)
-                : ChessSquare(ChessSquare::blackQueen);
+            fBoard[move.r_to()][move.f_to()] =
+                fBoard[move.r_to()][move.f_to()].isWhite() ? ChessSquare::whiteQueen : ChessSquare::blackQueen;
             break;
         case ChessMove::promoKnight:
-            fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
-                ? ChessSquare(ChessSquare::whiteKnight)
-                : ChessSquare(ChessSquare::blackKnight);
+            fBoard[move.r_to()][move.f_to()] =
+                fBoard[move.r_to()][move.f_to()].isWhite() ? ChessSquare::whiteKnight : ChessSquare::blackKnight;
             break;
         case ChessMove::promoRook:
-            fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
-                ? ChessSquare(ChessSquare::whiteRook)
-                : ChessSquare(ChessSquare::blackRook);
+            fBoard[move.r_to()][move.f_to()] =
+                fBoard[move.r_to()][move.f_to()].isWhite() ? ChessSquare::whiteRook : ChessSquare::blackRook;
             break;
         case ChessMove::promoBishop:
-            fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
-                ? ChessSquare(ChessSquare::whiteBishop)
-                : ChessSquare(ChessSquare::blackBishop);
+            fBoard[move.r_to()][move.f_to()] =
+                fBoard[move.r_to()][move.f_to()].isWhite() ? ChessSquare::whiteBishop : ChessSquare::blackBishop;
             break;
 #if ALLOW_KING_PROMOTION
         case ChessMove::promoKing:
-            fBoard[move.rt()][move.ft()] = fBoard[move.rt()][move.ft()].isWhite()
-                ? ChessSquare(ChessSquare::whiteKing)
-                : ChessSquare(ChessSquare::blackKing);
+            fBoard[move.rt()][move.ft()] =
+                fBoard[move.rt()][move.ft()].isWhite() ? ChessSquare::whiteKing : ChessSquare::blackKing;
             break;
 #endif
         default: break; // do Nothing
@@ -252,32 +241,112 @@ bool Board::move(ChessMove const& move) {
     return true;
 }
 
-inline void Board::genLegalMoves(MoveList& moves) { GenLegalMoves(*this, moves); }
+// all legal moves are added to the list, including castling
+inline void Board::genLegalMoves(MoveList& moves) const {
+    GenPseudoLegalMoves(moves); // FIXME
+    int i;
 
-bool Board::processMove(ChessMove const& m) {
-    MoveList allMoves;
-    genLegalMoves(allMoves);
-    return processMove(m, allMoves);
+    // castling moves
+    if (isWhiteToMove() && ((getCastle() & Board::whiteKS) || (getCastle() & Board::whiteQS))) {
+        // search for king on first rank
+        for (i = 0; i < files(); ++i) {
+            if (fBoard[0][i] == ChessSquare::whiteKing) {
+                if (getCastle() & Board::whiteKS) {
+                    bool pieceInWay = false;
+                    for (int j = i + 1; j < files() - 1; ++j)
+                        if (!fBoard[0][j].isEmpty())
+                            pieceInWay = true;
+
+                    if (!pieceInWay && fBoard[0][files() - 1] == ChessSquare::whiteRook && i + 2 < files()) {
+                        if (!IsInCheck() && !WillBeInCheck(ChessMove(0, i, 0, i + 1)))
+                            moves.add(ChessMove(0, i, 0, i + 2, ChessMove::whiteCastleKS));
+                    }
+                }
+                if (getCastle() & Board::whiteQS) {
+                    bool pieceInWay = false;
+                    for (int j = i - 1; j > 1; --j)
+                        if (!fBoard[0][j].isEmpty())
+                            pieceInWay = true;
+
+                    if (!pieceInWay && fBoard[0][0] == ChessSquare::whiteRook && i - 2 > 0) {
+                        if (!IsInCheck() &&
+                            !WillBeInCheck(ChessMove(0, i, 0, i - 1))) // cannot castle through
+                                                                       // check, or when in check
+                            moves.add(ChessMove(0, i, 0, i - 2, ChessMove::whiteCastleQS));
+                    }
+                }
+            }
+            //!!? Break is possible here, unless two kings on rank and one can castle
+            //!(some form of wild?)
+        }
+
+    } else if (isBlackToMove() && ((getCastle() & Board::blackKS) || (getCastle() & Board::blackQS))) {
+        // search for king on back rank
+        for (i = 0; i < files(); ++i) {
+            if (fBoard[ranks() - 1][i] == ChessSquare::blackKing) {
+                if (getCastle() & Board::blackKS) {
+                    bool pieceInWay = false;
+                    for (int j = i + 1; j < files() - 1; ++j)
+                        if (!fBoard[ranks() - 1][j].isEmpty())
+                            pieceInWay = true;
+
+                    if (!pieceInWay && fBoard[ranks() - 1][files() - 1] == ChessSquare::blackRook &&
+                        i + 2 < files()) {
+                        if (!IsInCheck() && !WillBeInCheck(ChessMove(ranks() - 1, i, ranks() - 1, i + 1))) {
+                            moves.add(
+                                ChessMove(ranks() - 1, i, ranks() - 1, i + 2, ChessMove::blackCastleKS));
+                        }
+                    }
+                }
+                if (getCastle() & Board::blackQS) {
+                    bool pieceInWay = false;
+                    for (int j = i - 1; j > 1; --j)
+                        if (!fBoard[ranks() - 1][j].isEmpty())
+                            pieceInWay = true;
+
+                    if (!pieceInWay && fBoard[ranks() - 1][0] == ChessSquare::blackRook && i - 2 > 0) {
+                        if (!IsInCheck() && !WillBeInCheck(ChessMove(ranks() - 1, i, ranks() - 1, i - 1)))
+                            moves.add(
+                                ChessMove(ranks() - 1, i, ranks() - 1, i - 2, ChessMove::blackCastleQS));
+                    }
+                }
+            }
+        }
+    }
+
+    i = 0;
+    while (i < ssize(moves)) {
+        if (WillBeInCheck(moves[i]))
+            moves.remove(i);
+        else
+            ++i;
+    };
 }
 
-bool Board::processMove(ChessMove const& m, MoveList& allMoves) {
-    int      enPassant = fBoard[m.rf()][m.ff()].isPawn() && abs(m.rt() - m.rf()) > 1 ? m.ft() : noCaptures;
+bool Board::processMove(ChessMove const& m) {
+    MoveList legal;
+    genLegalMoves(legal);
+    return processMove(m, legal);
+}
+
+bool Board::processMove(ChessMove const& m, MoveList& legal) {
+    int      enPassant = fBoard[m.r_from()][m.f_from()].isPawn() && abs(m.r_to() - m.r_from()) > 1 ? m.f_to() : noCaptures;
     unsigned plysSince =
-        !fBoard[m.rf()][m.ff()].isPawn() && fBoard[m.rt()][m.ft()].isEmpty() ? pliesSince_ + 1 : 0;
+        !fBoard[m.r_from()][m.f_from()].isPawn() && fBoard[m.r_to()][m.f_to()].isEmpty() ? pliesSince_ + 1 : 0;
 
     // eliminate castling move's
     int castle = castle_;
-    switch (fBoard[m.rf()][m.ff()].contents()) {
+    switch (fBoard[m.r_from()][m.f_from()].contents()) {
         case ChessSquare::whiteKing: castle &= ~(whiteKS | whiteQS); break;
         case ChessSquare::blackKing: castle &= ~(blackKS | blackQS); break;
         case ChessSquare::whiteRook:
-            if (m.ff() < files() / 2)
+            if (m.f_from() < files() / 2)
                 castle &= ~whiteQS;
             else
                 castle &= ~whiteKS;
             break;
         case ChessSquare::blackRook:
-            if (m.ff() < files() / 2)
+            if (m.f_from() < files() / 2)
                 castle &= ~blackQS;
             else
                 castle &= ~blackKS;
@@ -286,8 +355,8 @@ bool Board::processMove(ChessMove const& m, MoveList& allMoves) {
     }
 
     // isLegal()
-    if (toMove_ != endOfGame && move(m)) {
-        status_     = CheckStatus(*this, allMoves);
+    if (toMove_ != endOfGame && applyMove(m)) {
+        status_     = CheckStatus(legal);
         enPassant_  = enPassant;
         pliesSince_ = plysSince;
         castle_     = castle;
@@ -307,20 +376,251 @@ bool Board::processMove(ChessMove const& m, MoveList& allMoves) {
     }
 }
 
-// inline
-void Board::moveToAlgebraic(std::string& SAN, ChessMove const& move, MoveList const& allMoves) {
-    MoveToAlgebraic(move, *this, allMoves, SAN);
+std::string Board::toSAN(ChessMove const& move, MoveList const& legal) const {
+    std::ostringstream o;
+
+    bool conflict = false, fileConflict = false,
+         rankConflict = false; // use the file in case of a conflict, and rank if no file
+                               // conflict, and both if necessary (e.g. there are three
+                               // pieces accessing the same square)
+    switch (fBoard[move.r_from()][move.f_from()].contents()) {
+        case ChessSquare::whitePawn:
+        case ChessSquare::blackPawn:
+
+            o << ChessFileToChar(move.f_from());
+            if (move.f_from() != move.f_to()) {
+                o << 'x' << ChessFileToChar(move.f_to())
+                  << ChessRankToChar(move.r_to()); // Capture; use style "exd5"
+            } else {
+                o << ChessRankToChar(move.r_to()); // Non-capture; use style "e5"
+            }
+            switch (move.type()) {
+                case ChessMove::promoBishop: o << "=B"; break;
+                case ChessMove::promoKnight: o << "=N"; break;
+                case ChessMove::promoRook: o << "=R"; break;
+                case ChessMove::promoQueen: o << "=Q"; break;
+                case ChessMove::promoKing: o << "=K"; break;
+                default: // do nothing
+                    break;
+            }
+            break;
+
+        case ChessSquare::whiteKing:
+        case ChessSquare::blackKing:
+            // castling
+            if (move.r_from() == move.r_to() && move.r_from() == (fBoard[move.r_from()][move.f_from()].isWhite())
+                    ? 0
+                    : ranks() - 1) {
+                if ((signed)move.f_from() - (signed)move.f_to() < -1) {
+                    o << "O-O";
+                    break;
+                } else if ((signed)move.f_from() - (signed)move.f_to() > 1) {
+                    o << "O-O-O";
+                    break;
+                }
+            }
+
+            [[fallthrough]];
+        default:
+            o << (char)toupper(fBoard[move.r_from()][move.f_from()].pieceToChar());
+
+            for (int i = 0; i < ssize(legal); ++i) {
+                if (legal[i] != move &&                                         // not the same move
+                    legal[i].r_to() == move.r_to() && legal[i].f_to() == move.f_to() && // the same 'to' square
+                    fBoard[move.r_from()][move.f_from()].contents() ==
+                        fBoard[legal[i].r_from()][legal[i].f_from()].contents()) // same type of piece
+                {
+                    conflict = true;
+                    if (move.r_from() == legal[i].r_from())
+                        rankConflict = true;
+                    else if (move.f_from() == legal[i].f_from())
+                        fileConflict = true;
+                }
+            }
+            // resolve if the piece is on same file of rank (if there are three same
+            // pieces then use file and rank)
+            if (conflict && !rankConflict && !fileConflict) {
+                o << ChessFileToChar(move.f_from());
+            } else if (conflict && !rankConflict) {
+                o << ChessRankToChar(move.r_from());
+            } else if (fileConflict && rankConflict) {
+                o << ChessFileToChar(move.f_from()) << ChessRankToChar(move.r_from());
+            } else if (rankConflict) {
+                o << ChessFileToChar(move.f_from());
+            }
+
+            // determine if it's a capture
+            if (!fBoard[move.r_to()][move.f_to()].isEmpty()) {
+                o << 'x';
+            }
+
+            // destination square
+            o << ChessFileToChar(move.f_to()) << ChessRankToChar(move.r_to());
+
+            // Check or Checkmate
+            //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
+    }
+    return o.str();
 }
 
-//??! Change all these functions to const
-// inline
-bool Board::algebraicToMove(ChessMove& move, std::string_view SAN, MoveList const& allMoves) {
-    return AlgebraicToMove(SAN, *this, allMoves, move);
+// throws EmptyMove, IllegalMove, InvalidSAN
+ChessMove Board::parseSAN(std::string_view constSAN, MoveList const& legal) const {
+    ChessMove   move;
+    std::string san(constSAN);
+
+    RemoveWhiteSpace(san);
+    // remove unnecessary chars
+    RemoveChars(san, "+#x=!? ");
+
+    if (san.empty())
+        throw EmptyMove{};
+
+    // get piece type, look for
+    ChessSquare::Occupant piece;
+    switch (san[0]) {
+        case 'N':
+        case 'n': piece = isWhiteToMove() ? ChessSquare::whiteKnight : ChessSquare::blackKnight; break;
+        case 'B': piece = isWhiteToMove() ? ChessSquare::whiteBishop : ChessSquare::blackBishop; break;
+        case 'R':
+        case 'r': piece = isWhiteToMove() ? ChessSquare::whiteRook : ChessSquare::blackRook; break;
+        case 'Q':
+        case 'q': piece = isWhiteToMove() ? ChessSquare::whiteQueen : ChessSquare::blackQueen; break;
+        case 'K':
+        case 'k': piece = isWhiteToMove() ? ChessSquare::whiteKing : ChessSquare::blackKing; break;
+        case 'O':
+        case 'o': // castling
+            if (NumCharsInStr(san, 'O') > 2) {
+                for (size_t i = 0; i < legal.size(); ++i)
+                    if (legal[i].type() == ChessMove::whiteCastleQS ||
+                        legal[i].type() == ChessMove::blackCastleQS) {
+                        assert((isWhiteToMove() && legal[i].type() == ChessMove::whiteCastleQS) ||
+                               (isBlackToMove() && legal[i].type() == ChessMove::blackCastleQS));
+                        return legal[i];
+                    }
+                throw IllegalMove{constSAN};
+            } else {
+                for (size_t i = 0; i < legal.size(); ++i)
+                    if (legal[i].type() == ChessMove::whiteCastleKS ||
+                        legal[i].type() == ChessMove::blackCastleKS) {
+                        assert((isWhiteToMove() && legal[i].type() == ChessMove::whiteCastleKS) ||
+                               (isBlackToMove() && legal[i].type() == ChessMove::blackCastleKS));
+                        return legal[i];
+                    }
+                throw IllegalMove{constSAN};
+            }
+
+        default: piece = isWhiteToMove() ? ChessSquare::whitePawn : ChessSquare::blackPawn; break;
+    }
+
+    move.type() = ChessMove::normal;
+
+    if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
+        // is it a promotion?
+        if (IsPromoChar(san.back())) //!!? Lower case b is not counted as Bishop
+        {
+            switch (toupper(san.back())) {
+                case 'N': move.type() = ChessMove::promoKnight; break;
+                case 'B': move.type() = ChessMove::promoBishop; break;
+                case 'R': move.type() = ChessMove::promoRook; break;
+                case 'Q': move.type() = ChessMove::promoQueen; break;
+#ifdef ALLOW_KING_PROMOTION
+                case 'K': move.type() = ChessMove::promoKing; break;
+#endif
+                default: assert(0); // not Reached
+            }
+            san.pop_back();
+            if (san.empty())
+                throw IllegalMove{constSAN};
+        }
+        // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
+        // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
+        if (san.empty())
+            throw IllegalMove{constSAN};
+
+        if (san.length() == 1) // f
+        {
+            for (size_t i = 0; i < legal.size(); ++i) {
+                if (legal[i].f_from() == ChessCharToFile(san[0]) &&
+                    (move.isPromo() ? move.type() == legal[i].type() : true) &&
+                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                    return legal[i];
+                }
+            }
+        } else if (san.length() == 2 && isdigit(san[1])) // f4
+        {
+            for (size_t i = 0; i < legal.size(); ++i)
+                if (legal[i].f_from() == ChessCharToFile(san[0]) && legal[i].r_to() == ChessCharToRank(san[1]) &&
+                    (move.isPromo() ? move.type() == legal[i].type() : true) &&
+                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                    return legal[i];
+                }
+
+        } else if (san.length() == 2) // ef
+        {
+            assert(!isdigit(san[1]));
+            for (size_t i = 0; i < legal.size(); ++i)
+                if (legal[i].f_from() == ChessCharToFile(san[0]) && legal[i].f_to() == ChessCharToFile(san[1]) &&
+                    (move.isPromo() ? move.type() == legal[i].type() : true) &&
+                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                    return legal[i];
+                }
+        } else if (san.length() == 3) // ef4
+        {
+            for (size_t i = 0; i < legal.size(); ++i)
+                if (legal[i].f_from() == ChessCharToFile(san[0]) && legal[i].f_to() == ChessCharToFile(san[1]) &&
+                    legal[i].r_to() == ChessCharToRank(san[2]) &&
+                    (move.isPromo() ? move.type() == legal[i].type() : true) &&
+                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                    return legal[i];
+                }
+        } else if (san.length() == 4) // e3f4
+        {
+            for (size_t i = 0; i < legal.size(); ++i)
+                if (legal[i].f_from() == ChessCharToFile(san[0]) && legal[i].r_from() == ChessCharToRank(san[1]) &&
+                    legal[i].f_to() == ChessCharToFile(san[2]) && legal[i].r_to() == ChessCharToRank(san[3]) &&
+                    (move.isPromo() ? move.type() == legal[i].type() : true) &&
+                    fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                    return legal[i];
+                }
+        }
+    } else {
+        size_t const sanLength = san.length();
+        if (sanLength < 3)
+            throw InvalidSAN{constSAN};
+
+        for (size_t i = 0; i < legal.size(); ++i)
+            if (legal[i].f_to() == ChessCharToFile(san[sanLength - 2]) &&
+                legal[i].r_to() == ChessCharToRank(san[sanLength - 1]) &&
+                fBoard[legal[i].r_from()][legal[i].f_from()] == piece) {
+                switch (sanLength) {
+                    case 3: return legal[i]; // Nf3
+                    case 4:
+                        if (isdigit(san[1]) && legal[i].r_from() == ChessCharToRank(san[1])) // N1f3
+                        {
+                            return legal[i];
+                        } else if (legal[i].f_from() == ChessCharToFile(san[1])) // Ngf3
+                        {
+                            return legal[i];
+                        }
+                        break;
+                    case 5:
+                        if (legal[i].f_from() == ChessCharToFile(san[1]) &&
+                            legal[i].r_from() == ChessCharToFile(san[2])) // Ng1f3
+                        {
+                            return legal[i];
+                        }
+                        break;
+                    default: throw InvalidSAN{constSAN};
+                }
+            }
+    }
+
+    throw IllegalMove{constSAN};
 }
 
-void Board::genLegalMoveSet(MoveList& allMoves, SANQueue& allSAN) {
-    // should combine genLegalMoves and moveToAlgebraic efficiently
-    genLegalMoves(allMoves, allSAN);
+void Board::genLegalMoveSet(MoveList& legal, SANQueue& allSAN) {
+    // should combine genLegalMoves and toSAN efficiently
+    genLegalMoves(legal, allSAN);
     // disambiguateAllMoves
     disambiguateMoves(allSAN);
 }
@@ -331,11 +631,11 @@ inline void Board::addMove(ChessMove mv, MoveList& moves, SANQueue& allSAN) {
         return;
 #endif
     moves.add(mv);
-    allSAN.add({mv, moveToAlgebraicAmbiguity(mv)});
+    allSAN.add({mv, ambiguousSAN(mv)});
 }
 
-void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
-    genPseudoLegalMoves(allMoves, allSAN);
+void Board::genLegalMoves(MoveList& legal, SANQueue& allSAN) {
+    genPseudoLegalMoves(legal, allSAN);
     int i;
 
     // castling moves
@@ -352,8 +652,8 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
 
                         if (!pieceInWay && fBoard[0][files() - 1] == ChessSquare::whiteRook &&
                             i + 2 < files()) {
-                            if (!WillBeInCheck(*this, ChessMove(0, i, 0, i + 1)))
-                                addMove({0, i, 0, i + 2, ChessMove::whiteCastleKS}, allMoves, allSAN);
+                            if (!WillBeInCheck({0, i, 0, i + 1}))
+                                addMove({0, i, 0, i + 2, ChessMove::whiteCastleKS}, legal, allSAN);
                         }
                     }
                     if (getCastle() & whiteQS) {
@@ -363,9 +663,9 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
                                 pieceInWay = true;
 
                         if (!pieceInWay && fBoard[0][0] == ChessSquare::whiteRook && i - 2 > 0) {
-                            if (!WillBeInCheck(*this, ChessMove(0, i, 0, i - 1))) // cannot castle through
-                                                                                  // check, or when in check
-                                addMove({0, i, 0, i - 2, ChessMove::whiteCastleQS}, allMoves, allSAN);
+                            if (!WillBeInCheck({0, i, 0, i - 1})) // cannot castle through
+                                                                  // check, or when in check
+                                addMove({0, i, 0, i - 2, ChessMove::whiteCastleQS}, legal, allSAN);
                         }
                     }
                     break; //!!? Break is possible here, unless two kings on rank and one
@@ -385,9 +685,9 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
 
                         if (!pieceInWay && fBoard[ranks() - 1][files() - 1] == ChessSquare::blackRook &&
                             i + 2 < files()) {
-                            if (!WillBeInCheck(*this, ChessMove(ranks() - 1, i, ranks() - 1, i + 1))) {
-                                addMove({ranks() - 1, i, ranks() - 1, i + 2, ChessMove::blackCastleKS},
-                                        allMoves, allSAN);
+                            if (!WillBeInCheck({ranks() - 1, i, ranks() - 1, i + 1})) {
+                                addMove({ranks() - 1, i, ranks() - 1, i + 2, ChessMove::blackCastleKS}, legal,
+                                        allSAN);
                             }
                         }
                     }
@@ -398,9 +698,9 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
                                 pieceInWay = true;
 
                         if (!pieceInWay && fBoard[ranks() - 1][0] == ChessSquare::blackRook && i - 2 > 0) {
-                            if (!WillBeInCheck(*this, ChessMove(ranks() - 1, i, ranks() - 1, i - 1)))
-                                addMove({ranks() - 1, i, ranks() - 1, i - 2, ChessMove::blackCastleQS},
-                                        allMoves, allSAN);
+                            if (!WillBeInCheck({ranks() - 1, i, ranks() - 1, i - 1}))
+                                addMove({ranks() - 1, i, ranks() - 1, i - 2, ChessMove::blackCastleQS}, legal,
+                                        allSAN);
                         }
                     }
                     break;
@@ -409,12 +709,10 @@ void Board::genLegalMoves(MoveList& allMoves, SANQueue& allSAN) {
         }
     }
 
-    gTimer[9].start(); // 55% (11s)
-    removeIllegalMoves(allMoves, allSAN);
-    gTimer[9].stop();
+    TIMED(removeIllegalMoves(legal, allSAN));
 }
 
-void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
+void Board::removeIllegalMoves(MoveList& legal, SANQueue& allSAN) {
     bool                  isFound = false;
     ChessSquare::Occupant target  = toMove() == white ? ChessSquare::whiteKing : ChessSquare::blackKing;
 
@@ -435,17 +733,16 @@ void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
         return; // there is no king on the board
     }
 
-    unsigned i = 0;
-    while (i < allMoves.size()) {
-        Board     b = *this;
-        ChessMove m = allMoves[i];
-        b.move(m);
+    Board b = *this;
+    for (unsigned i = 0; i < legal.size(); b = *this) {
+        ChessMove m = legal[i];
+        b.applyMove(m);
         b.switchMove();
 
-        if (b.fBoard[m.rt()][m.ft()] == ChessSquare::whiteKing ||
-            b.fBoard[m.rt()][m.ft()] == ChessSquare::blackKing) {
-            if (b.canCaptureSquare(m.rt(), m.ft())) {
-                allMoves.remove(i);
+        if (b.fBoard[m.r_to()][m.f_to()] == ChessSquare::whiteKing ||
+            b.fBoard[m.r_to()][m.f_to()] == ChessSquare::blackKing) {
+            if (b.canCaptureSquare(m.r_to(), m.f_to())) {
+                legal.remove(i);
                 for (unsigned j = 0; j < allSAN.size(); ++j)
                     if (allSAN[j].move() == m) {
                         allSAN.remove(j);
@@ -455,7 +752,7 @@ void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
                 ++i;
         } else {
             if (b.canCaptureSquare(targetSquare.r, targetSquare.f)) {
-                allMoves.remove(i);
+                legal.remove(i);
                 for (unsigned j = 0; j < allSAN.size(); ++j)
                     if (allSAN[j].move() == m) {
                         allSAN.remove(j);
@@ -469,18 +766,18 @@ void Board::removeIllegalMoves(MoveList& allMoves, SANQueue& allSAN) {
 
 // doesn't worry about any ambiguities, nor does it indicate check
 // or checkmate status (which don't alter sort order anyway)
-std::string Board::moveToAlgebraicAmbiguity(ChessMove const& m) {
+std::string Board::ambiguousSAN(ChessMove const& m) {
     std::ostringstream o;
 
-    switch (fBoard[m.rf()][m.ff()].contents()) {
+    switch (fBoard[m.r_from()][m.f_from()].contents()) {
         case ChessSquare::whitePawn:
         case ChessSquare::blackPawn:
-            o << ChessFileToChar(m.ff());
+            o << ChessFileToChar(m.f_from());
 
-            if (m.ff() != m.ft()) {
-                o << 'x' << ChessFileToChar(m.ft()) << ChessRankToChar(m.rt()); // Capture; use style "exd5"
+            if (m.f_from() != m.f_to()) {
+                o << 'x' << ChessFileToChar(m.f_to()) << ChessRankToChar(m.r_to()); // Capture; use style "exd5"
             } else {
-                o << ChessRankToChar(m.rt()); // Non-capture; use style "e5"
+                o << ChessRankToChar(m.r_to()); // Non-capture; use style "e5"
             }
             switch (m.type()) {
                 case ChessMove::promoBishop: o << "=B"; break;
@@ -497,11 +794,11 @@ std::string Board::moveToAlgebraicAmbiguity(ChessMove const& m) {
         case ChessSquare::whiteKing:
         case ChessSquare::blackKing:
             // castling
-            if (m.rf() == m.rt() && m.rf() == (fBoard[m.rf()][m.ff()].isWhite()) ? 0 : ranks() - 1) {
-                if ((signed)m.ff() - (signed)m.ft() < -1) {
+            if (m.r_from() == m.r_to() && m.r_from() == (fBoard[m.r_from()][m.f_from()].isWhite()) ? 0 : ranks() - 1) {
+                if ((signed)m.f_from() - (signed)m.f_to() < -1) {
                     o << "O-O";
                     break;
-                } else if ((signed)m.ff() - (signed)m.ft() > 1) {
+                } else if ((signed)m.f_from() - (signed)m.f_to() > 1) {
                     o << "O-O-O";
                     break;
                 }
@@ -509,20 +806,19 @@ std::string Board::moveToAlgebraicAmbiguity(ChessMove const& m) {
 
             [[fallthrough]];
         default:
-            o << (char)toupper(fBoard[m.rf()][m.ff()].pieceToChar());
+            o << (char)toupper(fBoard[m.r_from()][m.f_from()].pieceToChar());
 
             // determine if it's a capture
-            if (!fBoard[m.rt()][m.ft()].isEmpty())
+            if (!fBoard[m.r_to()][m.f_to()].isEmpty())
                 o << 'x';
 
             // destination square
-            o << ChessFileToChar(m.ft()) << ChessRankToChar(m.rt());
+            o << ChessFileToChar(m.f_to()) << ChessRankToChar(m.r_to());
     }
-    return o.str();
+    return std::move(o).str();
 }
 
 void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
-    int i, j, d, s, fs, rs, rt, ft;
     if (toMove() == endOfGame)
         return;
 
@@ -533,7 +829,6 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                 continue;
             }
             switch (fBoard[rf][ff].contents()) {
-
                 case ChessSquare::whitePawn:
                     if (rf < 7 && fBoard[rf + 1][ff].isEmpty()) {
                         if (rf == ranks() - 2) // promotion
@@ -550,7 +845,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                     if (rf == 1 && fBoard[2][ff].isEmpty() && fBoard[3][ff].isEmpty()) {
                         addMove({rf, ff, 3, ff, ChessMove::normal}, moves, allSAN);
                     }
-                    for (s = -1; s <= 1; s += 2) {
+                    for (int s = -1; s <= 1; s += 2) {
                         if (rf < 7 && ff + s >= 0 && ff + s <= 7 && fBoard[rf + 1][ff + s].isBlack()) {
                             if (rf == ranks() - 2) // promotion
                             {
@@ -593,7 +888,7 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                         fBoard[ranks() - 4][ff].isEmpty()) {
                         addMove({rf, ff, ranks() - 4, ff, ChessMove::normal}, moves, allSAN);
                     }
-                    for (s = -1; s <= 1; s += 2) {
+                    for (int s = -1; s <= 1; s += 2) {
                         if (rf > 0 && ff + s >= 0 && ff + s <= 7 && fBoard[rf - 1][ff + s].isWhite()) {
                             if (rf == 1) // promotion
                             {
@@ -619,11 +914,11 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
 
                 case ChessSquare::whiteKnight:
                 case ChessSquare::blackKnight:
-                    for (i = -1; i <= 1; i += 2)
-                        for (j = -1; j <= 1; j += 2)
-                            for (s = 1; s <= 2; s++) {
-                                rt = rf + i * s;
-                                ft = ff + j * (3 - s);
+                    for (int i = -1; i <= 1; i += 2)
+                        for (int j = -1; j <= 1; j += 2)
+                            for (int s = 1; s <= 2; s++) {
+                                int rt = rf + i * s;
+                                int ft = ff + j * (3 - s);
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     continue;
 
@@ -636,11 +931,11 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
 
                 case ChessSquare::whiteBishop:
                 case ChessSquare::blackBishop:
-                    for (rs = -1; rs <= 1; rs += 2)
-                        for (fs = -1; fs <= 1; fs += 2)
-                            for (i = 1;; i++) {
-                                rt = rf + (i * rs);
-                                ft = ff + (i * fs);
+                    for (int rs = -1; rs <= 1; rs += 2)
+                        for (int fs = -1; fs <= 1; fs += 2)
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * rs);
+                                int ft = ff + (i * fs);
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
                                 if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
@@ -655,11 +950,11 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
 
                 case ChessSquare::whiteRook:
                 case ChessSquare::blackRook:
-                    for (d = 0; d <= 1; d++)
-                        for (s = -1; s <= 1; s += 2)
-                            for (i = 1;; i++) {
-                                rt = rf + (i * s) * d;
-                                ft = ff + (i * s) * (1 - d);
+                    for (int d = 0; d <= 1; d++)
+                        for (int s = -1; s <= 1; s += 2)
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * s) * d;
+                                int ft = ff + (i * s) * (1 - d);
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
                                 if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
@@ -674,13 +969,13 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
 
                 case ChessSquare::whiteQueen:
                 case ChessSquare::blackQueen:
-                    for (rs = -1; rs <= 1; rs++)
-                        for (fs = -1; fs <= 1; fs++) {
+                    for (int rs = -1; rs <= 1; rs++)
+                        for (int fs = -1; fs <= 1; fs++) {
                             if (rs == 0 && fs == 0)
                                 continue;
-                            for (i = 1;; i++) {
-                                rt = rf + (i * rs);
-                                ft = ff + (i * fs);
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * rs);
+                                int ft = ff + (i * fs);
 
                                 if (rt < 0 || rt > 7 || ft < 0 || ft > 7)
                                     break;
@@ -698,12 +993,12 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
                 case ChessSquare::whiteKing:
                 case ChessSquare::blackKing:
 
-                    for (i = -1; i <= 1; i++)
-                        for (j = -1; j <= 1; j++) {
+                    for (int i = -1; i <= 1; i++)
+                        for (int j = -1; j <= 1; j++) {
                             if (i == 0 && j == 0)
                                 continue;
-                            rt = rf + i;
-                            ft = ff + j;
+                            int rt = rf + i;
+                            int ft = ff + j;
                             if (rt < 0 || rt > 7 || ft < 0 || ft > 7)
                                 continue;
                             if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
@@ -721,11 +1016,9 @@ void Board::genPseudoLegalMoves(MoveList& moves, SANQueue& allSAN) {
 }
 
 // all moves that capture the square, square can be same color as person to move
-bool Board::canCaptureSquare(int targetRank, int targetFile) {
+bool Board::canCaptureSquare(int targetRank, int targetFile) const {
     assert(targetRank < ranks());
     assert(targetFile < files());
-
-    int i, j, d, s, fs, rs, rt, ft;
 
     if (toMove() == endOfGame)
         return false;
@@ -752,11 +1045,11 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
 
                 case ChessSquare::whiteKnight:
                 case ChessSquare::blackKnight:
-                    for (i = -1; i <= 1; i += 2)
-                        for (j = -1; j <= 1; j += 2)
-                            for (s = 1; s <= 2; s++) {
-                                rt = rf + i * s;
-                                ft = ff + j * (3 - s);
+                    for (int i = -1; i <= 1; i += 2)
+                        for (int j = -1; j <= 1; j += 2)
+                            for (int s = 1; s <= 2; s++) {
+                                int rt = rf + i * s;
+                                int ft = ff + j * (3 - s);
                                 if (rt != targetRank || ft != targetFile)
                                     continue;
 
@@ -767,11 +1060,11 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
 
                 case ChessSquare::whiteBishop:
                 case ChessSquare::blackBishop:
-                    for (rs = -1; rs <= 1; rs += 2)
-                        for (fs = -1; fs <= 1; fs += 2)
-                            for (i = 1;; i++) {
-                                rt = rf + (i * rs);
-                                ft = ff + (i * fs);
+                    for (int rs = -1; rs <= 1; rs += 2)
+                        for (int fs = -1; fs <= 1; fs += 2)
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * rs);
+                                int ft = ff + (i * fs);
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
 
@@ -785,11 +1078,11 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
 
                 case ChessSquare::whiteRook:
                 case ChessSquare::blackRook:
-                    for (d = 0; d <= 1; d++)
-                        for (s = -1; s <= 1; s += 2)
-                            for (i = 1;; i++) {
-                                rt = rf + (i * s) * d;
-                                ft = ff + (i * s) * (1 - d);
+                    for (int d = 0; d <= 1; d++)
+                        for (int s = -1; s <= 1; s += 2)
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * s) * d;
+                                int ft = ff + (i * s) * (1 - d);
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
 
@@ -803,13 +1096,13 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
 
                 case ChessSquare::whiteQueen:
                 case ChessSquare::blackQueen:
-                    for (rs = -1; rs <= 1; rs++)
-                        for (fs = -1; fs <= 1; fs++) {
+                    for (int rs = -1; rs <= 1; rs++)
+                        for (int fs = -1; fs <= 1; fs++) {
                             if (rs == 0 && fs == 0)
                                 continue;
-                            for (i = 1;; i++) {
-                                rt = rf + (i * rs);
-                                ft = ff + (i * fs);
+                            for (int i = 1;; i++) {
+                                int rt = rf + (i * rs);
+                                int ft = ff + (i * fs);
 
                                 if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
@@ -826,12 +1119,12 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
                 case ChessSquare::whiteKing:
                 case ChessSquare::blackKing:
 
-                    for (i = -1; i <= 1; i++)
-                        for (j = -1; j <= 1; j++) {
+                    for (int i = -1; i <= 1; i++)
+                        for (int j = -1; j <= 1; j++) {
                             if (i == 0 && j == 0)
                                 continue;
-                            rt = rf + i;
-                            ft = ff + j;
+                            int rt = rf + i;
+                            int ft = ff + j;
                             if (rt != targetRank || ft != targetFile)
                                 continue;
 
@@ -849,34 +1142,35 @@ bool Board::canCaptureSquare(int targetRank, int targetFile) {
     return false;
 }
 
-void Board::disambiguate(ChessMove const& move, std::string& san, SANQueue& allSAN) {
+void Board::disambiguate(ChessMove const& move, std::string& san, SANQueue& all) {
     if (san.length()) {
         bool conflict = false, rankConflict = false, fileConflict = false;
-        for (int i = 0; i < ssize(allSAN); ++i) {
-            auto& sanMv = allSAN[i].move();
-            if (sanMv.rt() == move.rt() && sanMv.ft() == move.ft() && // the same 'to' square
-                sanMv != move &&                                      // not the same move
-                fBoard[move.rf()][move.ff()].contents() ==
-                    fBoard[sanMv.rf()][sanMv.ff()].contents() && // same type of piece
-                (!rankConflict || !fileConflict)) // if you have two conflicts, no need to continue
+        for (int i = 0; i < ssize(all); ++i) {
+            auto& altMv = all[i].move();
+            if (altMv.r_to() == move.r_to() && altMv.f_to() == move.f_to() && // the same 'to' square
+                altMv != move &&                                              // not the same move
+                fBoard[move.r_from()][move.f_from()] ==
+                    fBoard[altMv.r_from()][altMv.f_from()]) // same type of piece
             {
                 conflict = true;
-                if (move.rf() == sanMv.rf())
+                if (move.r_from() == altMv.r_from())
                     rankConflict = true;
-                else if (move.ff() == sanMv.ff())
+                else if (move.f_from() == altMv.f_from())
                     fileConflict = true;
+                if (rankConflict && fileConflict)
+                    break; // if you have two conflicts, no need to continue
             }
         }
         // resolve if the piece is on same file of rank (if there are three same
         // pieces then use file and rank)
         if (conflict && !rankConflict && !fileConflict) {
-            san.insert(1, 1, ChessFileToChar(move.ff()));
+            san.insert(1, 1, ChessFileToChar(move.f_from()));
         } else if (conflict && !rankConflict) {
-            san.insert(1, 1, ChessRankToChar(move.rf()));
+            san.insert(1, 1, ChessRankToChar(move.r_from()));
         } else if (fileConflict && rankConflict) {
-            san.insert(1, {ChessFileToChar(move.ff()), ChessRankToChar(move.rf())});
+            san.insert(1, {ChessFileToChar(move.f_from()), ChessRankToChar(move.r_from())});
         } else if (rankConflict) {
-            san.insert(1, 1, ChessFileToChar(move.ff()));
+            san.insert(1, 1, ChessFileToChar(move.f_from()));
         }
     }
 }
@@ -884,7 +1178,7 @@ void Board::disambiguate(ChessMove const& move, std::string& san, SANQueue& allS
 void Board::disambiguateMoves(SANQueue& allSAN) {
     bool ambiguity = false;
     int  i;
-    for (i = 0; i < (signed)allSAN.size() - 1; ++i) {
+    for (i = 0; i < ssize(allSAN) - 1; ++i) {
         if (allSAN[i] == allSAN[i + 1]) {
             disambiguate(allSAN[i].move(), allSAN[i].SAN(), allSAN);
             ambiguity = true;
@@ -904,21 +1198,21 @@ void Board::disambiguateMoves(SANQueue& allSAN) {
 //
 // pseudoLegal: not castling, and not worrying about being left in check
 //
-void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
-    if (b.toMove() == Board::endOfGame)
+void Board::GenPseudoLegalMoves(MoveList& moves) const {
+    if (toMove() == Board::endOfGame)
         return;
 
-    for (int rf = 0; rf < b.ranks(); ++rf)
-        for (int ff = 0; ff < b.files(); ++ff) {
-            if ((b(rf, ff).isBlack() && b.toMove() == Board::white) ||
-                (b(rf, ff).isWhite() && b.toMove() == Board::black)) {
+    for (int rf = 0; rf < ranks(); ++rf)
+        for (int ff = 0; ff < files(); ++ff) {
+            if ((fBoard[rf][ff].isBlack() && toMove() == Board::white) ||
+                (fBoard[rf][ff].isWhite() && toMove() == Board::black)) {
                 continue;
             }
-            switch (b(rf, ff).contents()) {
+            switch (fBoard[rf][ff].contents()) {
 
                 case ChessSquare::whitePawn:
-                    if (rf < 7 && b(rf + 1, ff).isEmpty()) {
-                        if (rf == b.ranks() - 2) // promotion
+                    if (rf < 7 && fBoard[rf + 1][ff].isEmpty()) {
+                        if (rf == ranks() - 2) // promotion
                         {
                             moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoQueen));
                             moves.add(ChessMove(rf, ff, rf + 1, ff, ChessMove::promoKnight));
@@ -929,12 +1223,12 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             moves.add(ChessMove(rf, ff, rf + 1, ff));
                         }
                     }
-                    if (rf == 1 && b(2, ff).isEmpty() && b(3, ff).isEmpty()) {
+                    if (rf == 1 && fBoard[2][ff].isEmpty() && fBoard[3][ff].isEmpty()) {
                         moves.add(ChessMove(rf, ff, 3, ff));
                     }
                     for (int s = -1; s <= 1; s += 2) {
-                        if (rf < 7 && ff + s >= 0 && ff + s <= 7 && b(rf + 1, ff + s).isBlack()) {
-                            if (rf == b.ranks() - 2) // promotion
+                        if (rf < 7 && ff + s >= 0 && ff + s <= 7 && fBoard[rf + 1][ff + s].isBlack()) {
+                            if (rf == ranks() - 2) // promotion
                             {
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoQueen));
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s, ChessMove::promoKnight));
@@ -946,20 +1240,19 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                                 moves.add(ChessMove(rf, ff, rf + 1, ff + s));
                             }
                         }
-                        if (rf == b.ranks() - 4) {
+                        if (rf == ranks() - 4) {
                             if (ff + s >= 0 && ff + s <= 7 &&
-                                (b.enPassant() == ff + s || b.enPassant() == Board::allCaptures) &&
-                                b(b.ranks() - 4, ff + s).contents() == ChessSquare::blackPawn &&
-                                b(b.ranks() - 3, ff + s).isEmpty()) {
-                                moves.add(
-                                    ChessMove(rf, ff, b.ranks() - 3, ff + s, ChessMove::whiteEnPassant));
+                                (enPassant() == ff + s || enPassant() == Board::allCaptures) &&
+                                fBoard[ranks() - 4][ff + s].contents() == ChessSquare::blackPawn &&
+                                fBoard[ranks() - 3][ff + s].isEmpty()) {
+                                moves.add(ChessMove(rf, ff, ranks() - 3, ff + s, ChessMove::whiteEnPassant));
                             }
                         }
                     }
                     break;
 
                 case ChessSquare::blackPawn:
-                    if (rf > 0 && b(rf - 1, ff).isEmpty()) {
+                    if (rf > 0 && fBoard[rf - 1][ff].isEmpty()) {
                         if (rf == 1) // promotion
                         {
                             moves.add(ChessMove(rf, ff, rf - 1, ff, ChessMove::promoQueen));
@@ -971,12 +1264,12 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             moves.add(ChessMove(rf, ff, rf - 1, ff));
                         }
                     }
-                    if (rf == b.ranks() - 2 && b(b.ranks() - 3, ff).isEmpty() &&
-                        b(b.ranks() - 4, ff).isEmpty()) {
-                        moves.add(ChessMove(rf, ff, b.ranks() - 4, ff));
+                    if (rf == ranks() - 2 && fBoard[ranks() - 3][ff].isEmpty() &&
+                        fBoard[ranks() - 4][ff].isEmpty()) {
+                        moves.add(ChessMove(rf, ff, ranks() - 4, ff));
                     }
                     for (int s = -1; s <= 1; s += 2) {
-                        if (rf > 0 && ff + s >= 0 && ff + s <= 7 && b(rf - 1, ff + s).isWhite()) {
+                        if (rf > 0 && ff + s >= 0 && ff + s <= 7 && fBoard[rf - 1][ff + s].isWhite()) {
                             if (rf == 1) // promotion
                             {
                                 moves.add(ChessMove(rf, ff, rf - 1, ff + s, ChessMove::promoQueen));
@@ -990,8 +1283,9 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                         }
                         if (rf == 3) {
                             if (ff + s >= 0 && ff + s <= 7 &&
-                                (b.enPassant() == ff + s || b.enPassant() == Board::allCaptures) &&
-                                b(3, ff + s).contents() == ChessSquare::whitePawn && b(2, ff + s).isEmpty()) {
+                                (enPassant() == ff + s || enPassant() == Board::allCaptures) &&
+                                fBoard[3][ff + s].contents() == ChessSquare::whitePawn &&
+                                fBoard[2][ff + s].isEmpty()) {
                                 moves.add(ChessMove(rf, ff, 2, ff + s, ChessMove::blackEnPassant));
                             }
                         }
@@ -1005,10 +1299,10 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             for (int s = 1; s <= 2; s++) {
                                 int rt = rf + i * s;
                                 int ft = ff + j * (3 - s);
-                                if (rt < 0 || rt > b.ranks() - 1 || ft < 0 || ft > b.files() - 1)
+                                if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     continue;
 
-                                if (IsSameColor(b(rf, ff), b(rt, ft)))
+                                if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     continue;
 
                                 moves.add(ChessMove(rf, ff, rt, ft));
@@ -1022,14 +1316,14 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             for (int i = 1;; i++) {
                                 int rt = rf + (i * rs);
                                 int ft = ff + (i * fs);
-                                if (rt < 0 || rt > b.ranks() - 1 || ft < 0 || ft > b.files() - 1)
+                                if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
-                                if (IsSameColor(b(rf, ff), b(rt, ft)))
+                                if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     break;
 
                                 moves.add(ChessMove(rf, ff, rt, ft));
 
-                                if (!b(rt, ft).isEmpty())
+                                if (!fBoard[rt][ft].isEmpty())
                                     break;
                             }
                     break;
@@ -1041,14 +1335,14 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             for (int i = 1;; i++) {
                                 int rt = rf + (i * s) * d;
                                 int ft = ff + (i * s) * (1 - d);
-                                if (rt < 0 || rt > b.ranks() - 1 || ft < 0 || ft > b.files() - 1)
+                                if (rt < 0 || rt > ranks() - 1 || ft < 0 || ft > files() - 1)
                                     break;
-                                if (IsSameColor(b(rf, ff), b(rt, ft)))
+                                if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     break;
 
                                 moves.add(ChessMove(rf, ff, rt, ft));
 
-                                if (!b(rt, ft).isEmpty())
+                                if (!fBoard[rt][ft].isEmpty())
                                     break;
                             }
                     break;
@@ -1064,12 +1358,12 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                                 int ft = ff + (i * fs);
                                 if (rt < 0 || rt > 7 || ft < 0 || ft > 7)
                                     break;
-                                if (IsSameColor(b(rf, ff), b(rt, ft)))
+                                if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                     break;
 
                                 moves.add(ChessMove(rf, ff, rt, ft));
 
-                                if (!b(rt, ft).isEmpty())
+                                if (!fBoard[rt][ft].isEmpty())
                                     break;
                             }
                         }
@@ -1086,7 +1380,7 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
                             int ft = ff + j;
                             if (rt < 0 || rt > 7 || ft < 0 || ft > 7)
                                 continue;
-                            if (IsSameColor(b(rf, ff), b(rt, ft)))
+                            if (IsSameColor(fBoard[rf][ff], fBoard[rt][ft]))
                                 continue;
 
                             moves.add(ChessMove(rf, ff, rt, ft));
@@ -1101,19 +1395,18 @@ void GenPseudoLegalMoves(Board const& b, MoveList& moves) {
 }
 
 // returns if the person to move is in check
-bool IsInCheck(Board b) {
+bool Board::IsInCheck() const {
     // scan a1,a2,...,h8 only test first king found
     bool                  isFound = false;
-    ChessSquare::Occupant target =
-        b.toMove() == Board::white ? ChessSquare::whiteKing : ChessSquare::blackKing;
+    ChessSquare::Occupant target = toMove() == Board::white ? ChessSquare::whiteKing : ChessSquare::blackKing;
 
     struct {
         unsigned r, f;
     } targetSquare;
 
-    for (int r = 0; r < b.ranks() && !isFound; ++r)
-        for (int f = 0; f < b.files() && !isFound; ++f) {
-            if (b(r, f).contents() == target) {
+    for (int r = 0; r < ranks() && !isFound; ++r)
+        for (int f = 0; f < files() && !isFound; ++f) {
+            if (fBoard[r][f].contents() == target) {
                 targetSquare.r = r;
                 targetSquare.f = f;
                 isFound        = true;
@@ -1124,398 +1417,36 @@ bool IsInCheck(Board b) {
         return false; // there is no king on the board
     }
 
+    Board b = *this;
     b.switchMove();
     return b.canCaptureSquare(targetSquare.r, targetSquare.f);
 }
 
 // if the move is made what will you be left in check?
-bool WillBeInCheck(Board b, ChessMove const& move) {
-    b.move(move);
-    return IsInCheck(b);
+bool Board::WillBeInCheck(ChessMove const& move) const {
+    Board b = *this;
+    b.applyMove(move);
+    return b.IsInCheck();
 }
 
 // if the move is made will you be giving check?
-bool WillGiveCheck(Board b, ChessMove const& move) {
-    b.move(move);
+bool Board::WillGiveCheck(ChessMove const& move) const {
+    Board b = *this;
+    b.applyMove(move);
     b.switchMove();
-    return IsInCheck(b);
+    return b.IsInCheck();
 }
 
-void GenLegalMoves(Board const& b, MoveList& moves) {
-    GenPseudoLegalMoves(b, moves);
-    int i;
-
-    // castling moves
-    if (b.isWhiteToMove() && ((b.getCastle() & Board::whiteKS) || (b.getCastle() & Board::whiteQS))) {
-        // search for king on first rank
-        for (i = 0; i < b.files(); ++i) {
-            if (b(0, i) == ChessSquare::whiteKing) {
-                if (b.getCastle() & Board::whiteKS) {
-                    bool pieceInWay = false;
-                    for (int j = i + 1; j < b.files() - 1; ++j)
-                        if (!b(0, j).isEmpty())
-                            pieceInWay = true;
-
-                    if (!pieceInWay && b(0, b.files() - 1) == ChessSquare::whiteRook && i + 2 < b.files()) {
-                        if (!IsInCheck(b) && !WillBeInCheck(b, ChessMove(0, i, 0, i + 1)))
-                            moves.add(ChessMove(0, i, 0, i + 2, ChessMove::whiteCastleKS));
-                    }
-                }
-                if (b.getCastle() & Board::whiteQS) {
-                    bool pieceInWay = false;
-                    for (int j = i - 1; j > 1; --j)
-                        if (!b(0, j).isEmpty())
-                            pieceInWay = true;
-
-                    if (!pieceInWay && b(0, 0) == ChessSquare::whiteRook && i - 2 > 0) {
-                        if (!IsInCheck(b) &&
-                            !WillBeInCheck(b, ChessMove(0, i, 0, i - 1))) // cannot castle through
-                                                                          // check, or when in check
-                            moves.add(ChessMove(0, i, 0, i - 2, ChessMove::whiteCastleQS));
-                    }
-                }
-            }
-            //!!? Break is possible here, unless two kings on rank and one can castle
-            //!(some form of wild?)
-        }
-
-    } else if (b.isBlackToMove() && ((b.getCastle() & Board::blackKS) || (b.getCastle() & Board::blackQS))) {
-        // search for king on back rank
-        for (i = 0; i < b.files(); ++i) {
-            if (b(b.ranks() - 1, i) == ChessSquare::blackKing) {
-                if (b.getCastle() & Board::blackKS) {
-                    bool pieceInWay = false;
-                    for (int j = i + 1; j < b.files() - 1; ++j)
-                        if (!b(b.ranks() - 1, j).isEmpty())
-                            pieceInWay = true;
-
-                    if (!pieceInWay && b(b.ranks() - 1, b.files() - 1) == ChessSquare::blackRook &&
-                        i + 2 < b.files()) {
-                        if (!IsInCheck(b) &&
-                            !WillBeInCheck(b, ChessMove(b.ranks() - 1, i, b.ranks() - 1, i + 1))) {
-                            moves.add(
-                                ChessMove(b.ranks() - 1, i, b.ranks() - 1, i + 2, ChessMove::blackCastleKS));
-                        }
-                    }
-                }
-                if (b.getCastle() & Board::blackQS) {
-                    bool pieceInWay = false;
-                    for (int j = i - 1; j > 1; --j)
-                        if (!b(b.ranks() - 1, j).isEmpty())
-                            pieceInWay = true;
-
-                    if (!pieceInWay && b(b.ranks() - 1, 0) == ChessSquare::blackRook && i - 2 > 0) {
-                        if (!IsInCheck(b) &&
-                            !WillBeInCheck(b, ChessMove(b.ranks() - 1, i, b.ranks() - 1, i - 1)))
-                            moves.add(
-                                ChessMove(b.ranks() - 1, i, b.ranks() - 1, i - 2, ChessMove::blackCastleQS));
-                    }
-                }
-            }
-        }
-    }
-
-    i = 0;
-    while (i < ssize(moves)) {
-        if (WillBeInCheck(b, moves[i]))
-            moves.remove(i);
-        else
-            ++i;
-    }
-}
-
-E_gameCheckStatus CheckStatus(Board const& b, MoveList& allMoves) {
-    if (allMoves.size())
-        return IsInCheck(b) ? inCheck : notInCheck;
+E_gameCheckStatus Board::CheckStatus(MoveList& legal) const {
+    if (legal.size())
+        return IsInCheck() ? E_gameCheckStatus::inCheck : E_gameCheckStatus::notInCheck;
     else
-        return IsInCheck(b) ? inCheckmate : inStalemate;
-}
-
-// significant in some cases)
-//!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
-//!&allMoves) just before this function
-//??! Still need to test what happens when the allMoves is incorrect
-void MoveToAlgebraic(ChessMove const& move, Board const& b, MoveList const& allMoves, std::string& out) {
-    std::ostringstream o;
-
-    bool conflict = false, fileConflict = false,
-         rankConflict = false; // use the file in case of a conflict, and rank if no file
-                               // conflict, and both if necessary (e.g. there are three
-                               // pieces accessing the same square)
-    switch (b(move.rf(), move.ff()).contents()) {
-        case ChessSquare::whitePawn:
-        case ChessSquare::blackPawn:
-
-            o << ChessFileToChar(move.ff());
-            if (move.ff() != move.ft()) {
-                o << 'x' << ChessFileToChar(move.ft())
-                  << ChessRankToChar(move.rt()); // Capture; use style "exd5"
-            } else {
-                o << ChessRankToChar(move.rt()); // Non-capture; use style "e5"
-            }
-            switch (move.type()) {
-                case ChessMove::promoBishop: o << "=B"; break;
-                case ChessMove::promoKnight: o << "=N"; break;
-                case ChessMove::promoRook: o << "=R"; break;
-                case ChessMove::promoQueen: o << "=Q"; break;
-                case ChessMove::promoKing: o << "=K"; break;
-                default: // do nothing
-                    break;
-            }
-            break;
-
-        case ChessSquare::whiteKing:
-        case ChessSquare::blackKing:
-            // castling
-            if (move.rf() == move.rt() && move.rf() == (b(move.rf(), move.ff()).isWhite()) ? 0
-                                                                                           : b.ranks() - 1) {
-                if ((signed)move.ff() - (signed)move.ft() < -1) {
-                    o << "O-O";
-                    break;
-                } else if ((signed)move.ff() - (signed)move.ft() > 1) {
-                    o << "O-O-O";
-                    break;
-                }
-            }
-
-            [[fallthrough]];
-        default:
-            o << (char)toupper(b(move.rf(), move.ff()).pieceToChar());
-
-            for (int i = 0; i < ssize(allMoves); ++i) {
-                if (allMoves[i] != move &&                                            // not the same move
-                    allMoves[i].rt() == move.rt() && allMoves[i].ft() == move.ft() && // the same 'to' square
-                    b(move.rf(), move.ff()).contents() ==
-                        b(allMoves[i].rf(), allMoves[i].ff()).contents()) // same type of piece
-                {
-                    conflict = true;
-                    if (move.rf() == allMoves[i].rf())
-                        rankConflict = true;
-                    else if (move.ff() == allMoves[i].ff())
-                        fileConflict = true;
-                }
-            }
-            // resolve if the piece is on same file of rank (if there are three same
-            // pieces then use file and rank)
-            if (conflict && !rankConflict && !fileConflict) {
-                o << ChessFileToChar(move.ff());
-            } else if (conflict && !rankConflict) {
-                o << ChessRankToChar(move.rf());
-            } else if (fileConflict && rankConflict) {
-                o << ChessFileToChar(move.ff()) << ChessRankToChar(move.rf());
-            } else if (rankConflict) {
-                o << ChessFileToChar(move.ff());
-            }
-
-            // determine if it's a capture
-            if (!b(move.rt(), move.ft()).isEmpty()) {
-                o << 'x';
-            }
-
-            // destination square
-            o << ChessFileToChar(move.ft()) << ChessRankToChar(move.rt());
-
-            // Check or Checkmate
-            //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
-    }
-    out += o.str();
-}
-
-// case insensitive
-unsigned NumCharsInStr(std::string_view str, char c) {
-    int count = 0;
-    for (auto ch : str)
-        if (toupper(ch) == toupper(c))
-            ++count;
-    return count;
-}
-
-//!?? If a move is ambiguous it will just pick the first move it finds.
-// returns true if the moved could be parsed, false otherwise
-// performs a lot of cleanup, so the move can be messy (calls
-// RemoveChars("x+=#!? "))
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move) {
-    MoveList allMoves;
-    GenLegalMoves(b, allMoves);
-
-    return AlgebraicToMove(constSAN, b, allMoves, move);
-}
-
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& allMoves, ChessMove& move) {
-    std::string san(constSAN);
-
-    RemoveWhiteSpace(san);
-    // remove unnecessary chars
-    RemoveChars(san, "+#x=!? ");
-
-    if (san.empty())
-        return false;
-
-    // get piece type, look for
-    ChessSquare::Occupant piece;
-    switch (san[0]) {
-        case 'N':
-        case 'n': piece = b.isWhiteToMove() ? ChessSquare::whiteKnight : ChessSquare::blackKnight; break;
-        case 'B': piece = b.isWhiteToMove() ? ChessSquare::whiteBishop : ChessSquare::blackBishop; break;
-        case 'R':
-        case 'r': piece = b.isWhiteToMove() ? ChessSquare::whiteRook : ChessSquare::blackRook; break;
-        case 'Q':
-        case 'q': piece = b.isWhiteToMove() ? ChessSquare::whiteQueen : ChessSquare::blackQueen; break;
-        case 'K':
-        case 'k': piece = b.isWhiteToMove() ? ChessSquare::whiteKing : ChessSquare::blackKing; break;
-        case 'O':
-        case 'o': // castling
-            if (NumCharsInStr(san, 'O') > 2) {
-                for (size_t i = 0; i < allMoves.size(); ++i)
-                    if (allMoves[i].type() == ChessMove::whiteCastleQS ||
-                        allMoves[i].type() == ChessMove::blackCastleQS) {
-                        assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleQS) ||
-                               (b.isBlackToMove() && allMoves[i].type() == ChessMove::blackCastleQS));
-                        move = allMoves[i];
-                        return true;
-                    }
-                return false;
-            } else {
-                for (size_t i = 0; i < allMoves.size(); ++i)
-                    if (allMoves[i].type() == ChessMove::whiteCastleKS ||
-                        allMoves[i].type() == ChessMove::blackCastleKS) {
-                        assert((b.isWhiteToMove() && allMoves[i].type() == ChessMove::whiteCastleKS) ||
-                               (b.isBlackToMove() && allMoves[i].type() == ChessMove::blackCastleKS));
-                        move = allMoves[i];
-                        return true;
-                    }
-                return false;
-            }
-
-        default: piece = b.isWhiteToMove() ? ChessSquare::whitePawn : ChessSquare::blackPawn; break;
-    }
-
-    move.type() = ChessMove::normal;
-
-    if (piece == ChessSquare::whitePawn || piece == ChessSquare::blackPawn) {
-        // is it a promotion?
-        if (IsPromoChar(san.back())) //!!? Lower case b is not counted as Bishop
-        {
-            switch (toupper(san.back())) {
-                case 'N': move.type() = ChessMove::promoKnight; break;
-                case 'B': move.type() = ChessMove::promoBishop; break;
-                case 'R': move.type() = ChessMove::promoRook; break;
-                case 'Q': move.type() = ChessMove::promoQueen; break;
-#ifdef ALLOW_KING_PROMOTION
-                case 'K': move.type() = ChessMove::promoKing; break;
-#endif
-                default: assert(0); // not Reached
-            }
-            san.pop_back();
-            if (san.empty())
-                return false;
-        }
-        // possibilities: "f", "f4", "ef (e.p.)", "ef4", "exf4 (e.p.)", "e3f4
-        // (e.p.)", "e3xf4" (e.p.) all x's have been removed, e.p. is taken care of
-        if (san.empty())
-            return false;
-
-        if (san.length() == 1) // f
-        {
-            for (size_t i = 0; i < allMoves.size(); ++i) {
-                if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
-                    (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
-                    b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                    move = allMoves[i];
-                    return true;
-                }
-            }
-        } else if (san.length() == 2 && isdigit(san[1])) // f4
-        {
-            for (size_t i = 0; i < allMoves.size(); ++i)
-                if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
-                    allMoves[i].rt() == ChessCharToRank(san[1]) &&
-                    (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
-                    b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                    move = allMoves[i];
-                    return true;
-                }
-
-        } else if (san.length() == 2) // ef
-        {
-            assert(!isdigit(san[1]));
-            for (size_t i = 0; i < allMoves.size(); ++i)
-                if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
-                    allMoves[i].ft() == ChessCharToFile(san[1]) &&
-                    (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
-                    b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                    move = allMoves[i];
-                    return true;
-                }
-        } else if (san.length() == 3) // ef4
-        {
-            for (size_t i = 0; i < allMoves.size(); ++i)
-                if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
-                    allMoves[i].ft() == ChessCharToFile(san[1]) &&
-                    allMoves[i].rt() == ChessCharToRank(san[2]) &&
-                    (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
-                    b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                    move = allMoves[i];
-                    return true;
-                }
-        } else if (san.length() == 4) // e3f4
-        {
-            for (size_t i = 0; i < allMoves.size(); ++i)
-                if (allMoves[i].ff() == ChessCharToFile(san[0]) &&
-                    allMoves[i].rf() == ChessCharToRank(san[1]) &&
-                    allMoves[i].ft() == ChessCharToFile(san[2]) &&
-                    allMoves[i].rt() == ChessCharToRank(san[3]) &&
-                    (move.isPromo() ? move.type() == allMoves[i].type() : true) &&
-                    b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                    move = allMoves[i];
-                    return true;
-                }
-        }
-    } else {
-        size_t const sanLength = san.length();
-        if (sanLength < 3)
-            return false;
-
-        for (size_t i = 0; i < allMoves.size(); ++i)
-            if (allMoves[i].ft() == ChessCharToFile(san[sanLength - 2]) &&
-                allMoves[i].rt() == ChessCharToRank(san[sanLength - 1]) &&
-                b(allMoves[i].rf(), allMoves[i].ff()) == piece) {
-                switch (sanLength) {
-                    case 3: move = allMoves[i]; return true; // Nf3
-                    case 4:
-                        if (isdigit(san[1]) && allMoves[i].rf() == ChessCharToRank(san[1])) // N1f3
-                        {
-                            move = allMoves[i];
-                            return true;
-                        } else if (allMoves[i].ff() == ChessCharToFile(san[1])) // Ngf3
-                        {
-                            move = allMoves[i];
-                            return true;
-                        }
-                        break;
-                    case 5:
-                        if (allMoves[i].ff() == ChessCharToFile(san[1]) &&
-                            allMoves[i].rf() == ChessCharToFile(san[2])) // Ng1f3
-                        {
-                            move = allMoves[i];
-                            return true;
-                        }
-                        break;
-                    default: return false;
-                }
-            }
-    }
-
-    return false; // no matching legal move was found
+        return IsInCheck() ? E_gameCheckStatus::inCheckmate : E_gameCheckStatus::inStalemate;
 }
 
 #ifdef TEST
 
-char const gFENBeginNormalGame[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
     #include <iostream>
-
-StopWatch gTimer[10];
 
 int main() {
     // NormalChessGame g1;
@@ -1549,17 +1480,12 @@ int main() {
         if (!strcmp(buf, "end"))
             break;
 
-        ChessMove move;
-        if (AlgebraicToMove(buf, b, move)) {
-            std::string SAN;
-            MoveToAlgebraic(move, b, moves, SAN);
+        ChessMove   move = b.parseSAN(buf, moves); // TODO handle MoveError
+        std::string SAN  = b.toSAN(move, moves);
 
-            b.processMove(move);
+        b.processMove(move);
 
-            std::cout << "\n Moved: '" << SAN.c_str() << "' ";
-        } else {
-            std::cout << "\n Move is not legal.";
-        }
+        std::cout << "\n Moved: '" << SAN.c_str() << "' ";
     }
 
     return EXIT_SUCCESS;

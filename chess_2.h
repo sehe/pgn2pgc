@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include <array>
 #include <cassert>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -11,8 +12,21 @@
 //!!? Rank and file mean row (y) and column (x) in chess
 
 #ifndef ALLOW_KING_PROMOTION
-#define ALLOW_KING_PROMOTION false
+    #define ALLOW_KING_PROMOTION false
 #endif
+
+struct MoveError : std::runtime_error {
+    MoveError(std::string_view msg) : std::runtime_error(std::string(msg)) {}
+};
+struct EmptyMove : MoveError {
+    EmptyMove() : MoveError("Empty move") {}
+};
+struct InvalidSAN : MoveError {
+    InvalidSAN(std::string_view input) : MoveError("Invalid SAN: " + std::string(input)) {}
+};
+struct IllegalMove : MoveError {
+    IllegalMove(std::string_view input) : MoveError("Illegal move: " + std::string(input)) {}
+};
 
 struct ChessSquare {
   public:
@@ -48,7 +62,7 @@ struct ChessSquare {
 
     constexpr auto operator<=>(ChessSquare const& rhs) const = default;
 
-    constexpr char pieceToChar();
+    constexpr char pieceToChar() const;
 
   private:
     Occupant occ_;
@@ -84,10 +98,10 @@ struct ChessMove {
             type_ == promoKing;
     }
     constexpr bool        isEnPassant() const { return type_ == whiteEnPassant || type_ == blackEnPassant; }
-    constexpr int         rf() const { return rf_; }
-    constexpr int         ff() const { return ff_; }
-    constexpr int         rt() const { return rt_; }
-    constexpr int         ft() const { return ft_; }
+    constexpr int         r_from() const { return rf_; }
+    constexpr int         f_from() const { return ff_; }
+    constexpr int         r_to() const { return rt_; }
+    constexpr int         f_to() const { return ft_; }
     constexpr Type const& type() const { return type_; }
     constexpr Type&       type() { return type_; }
 
@@ -108,7 +122,8 @@ class ChessMoveSAN {
   public:
     ChessMoveSAN(ChessMove mv = {}, std::string SAN = {}) : move_(std::move(mv)), SAN_(std::move(SAN)) {}
     ChessMove const& move() const { return move_; }
-    std::string&     SAN() { return SAN_; }
+    std::string const& SAN() const { return SAN_; }
+    std::string&       SAN() { return SAN_; }
 
     bool operator<(ChessMoveSAN const& b) const { return SAN_ < b.SAN_; }
     bool operator==(ChessMoveSAN const& b) const { return SAN_ == b.SAN_; }
@@ -118,10 +133,10 @@ class ChessMoveSAN {
     std::string SAN_{};
 };
 
-// char ChessFileToChar(unsigned file); // 0 = a, 1 = b...
-// char ChessRankToChar(unsigned rank); // 0 = '1', 1 = '1'...
-// int  ChessCharToFile(char file);     // 'a' = 0
-// int  ChessCharToRank(char rank);     // '1' = 0
+// char        ChessFileToChar(unsigned file); // 0 = a, 1 = b...
+// char        ChessRankToChar(unsigned rank); // 0 = '1', 1 = '1'...
+// int         ChessCharToFile(char file);     // 'a' = 0
+// int         ChessCharToRank(char rank);     // '1' = 0
 // ChessSquare LetterToSquare(char SAN_FEN_Letter); // 'R' == rook 'K' == king..
 
 enum E_gameCheckStatus { notInCheck, inCheck, inCheckmate, inStalemate };
@@ -152,7 +167,7 @@ class Board {
         else if (toMove_ == white)
             toMove_ = black;
     } // private
-    bool move(ChessMove const&);          // private, need to remove calls to external functions
+    bool applyMove(ChessMove const&);     // private, need to remove calls to external functions
     bool processMove(ChessMove const& m); // make move and change status of game,
                                           // colorToMove etc
     bool processMove(ChessMove const& m, MoveList&);
@@ -168,16 +183,17 @@ class Board {
     int ranks() const { return gRanks; }
     int files() const { return gFiles; }
 
-    void genLegalMoves(MoveList&);
+    // all legal moves are added to the list, including castling
+    void genLegalMoves(MoveList&) const;
     // adds the moves to the list and the SAN representations to the queue
     void genLegalMoveSet(MoveList&, SANQueue&);
 
     // no ambiguities, move is not checked for legality
-    void moveToAlgebraic(std::string&, ChessMove const&, MoveList const&);
+    std::string toSAN(ChessMove const&, MoveList const&) const;
 
-    bool algebraicToMove(ChessMove&, std::string_view, MoveList const&);
+    ChessMove parseSAN(std::string_view san, MoveList const& legal) const;
 
-    bool canCaptureSquare(int r, int f);
+    bool canCaptureSquare(int r, int f) const;
 
     bool     inCheck();
     E_status checkStatus();
@@ -194,12 +210,12 @@ class Board {
   private:
     void disambiguateMoves(SANQueue&);
     void disambiguate(ChessMove const&, std::string&, SANQueue&);
-    void genPseudoLegalMoves(MoveList&);
     void genPseudoLegalMoves(MoveList&, SANQueue&);
     void genLegalMoves(MoveList&, SANQueue&);
     void addMove(ChessMove, MoveList& moves, SANQueue& allSAN);
-    std::string moveToAlgebraicAmbiguity(ChessMove const&);
-    void removeIllegalMoves(MoveList&, SANQueue&);
+    // SEHE FIXME rid this representation
+    std::string ambiguousSAN(ChessMove const&);
+    void        removeIllegalMoves(MoveList&, SANQueue&);
 
     static constexpr int gRanks = 8, gFiles = 8;
     using Rank   = std::array<ChessSquare, gFiles>;
@@ -212,39 +228,25 @@ class Board {
     int               enPassant_  = allCaptures; // noCaptures, allCaptures, 0 = a file, 1 = b...
     unsigned          pliesSince_ = 0;
     unsigned          moveNumber_ = 1;
+
+    //-----------------------------------------------------------------------------
+    // pseudoLegal: not castling, and not worrying about being left in check
+    void GenPseudoLegalMoves(MoveList& moves) const;
+
+    // returns if the person to move is in check
+    bool IsInCheck() const;
+
+    // if the move is made what will you be left in check?
+    bool WillBeInCheck(ChessMove const& move) const;
+
+    // if the move is made will you be giving check?
+    bool WillGiveCheck(ChessMove const& move) const;
+
+    // what is the status of the position on the board?
+    E_gameCheckStatus CheckStatus(MoveList&) const;
 };
-
-//-----------------------------------------------------------------------------
-// pseudoLegal: not castling, and not worrying about being left in check
-void GenPseudoLegalMoves(Board const& b, MoveList& moves);
-
-// returns if the person to move is in check
-bool IsInCheck(Board b);
-
-// if the move is made what will you be left in check?
-bool WillBeInCheck(Board b, ChessMove const& move);
-
-// if the move is made will you be giving check?
-bool WillGiveCheck(Board b, ChessMove const& move);
-
-// all legal moves are added to the list, including castleling
-void GenLegalMoves(Board const& b, MoveList& moves);
-
-// what is the status of the position on the board?
-E_gameCheckStatus CheckStatus(Board const& b, MoveList&);
-
-// in case you already know all of the chessMoves to save processing time (very
-// significant in some cases)
-//!?? allMoves must be the legal moves for the board, e.g. call GenLegalMoves(b,
-//!&allMoves) just before this function
-void MoveToAlgebraic(ChessMove const& move, Board const& b, MoveList const& allMoves, std::string& out);
 
 // return false if 'b', as this can mean a file
 inline bool IsPromoChar(char c) {
     return toupper(c) == 'Q' || toupper(c) == 'N' || c == 'B' || toupper(c) == 'R' || toupper(c) == 'K';
 }
-
-// converts the SAN string to a ChessMove
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, ChessMove& move);
-
-bool AlgebraicToMove(std::string_view constSAN, Board const& b, MoveList const& allMoves, ChessMove& move);

@@ -20,6 +20,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #include <chrono>
+#include <string_view>
 #include <utility> // std::exchange
 
 class StopWatch {
@@ -28,21 +29,47 @@ class StopWatch {
     using Duration = Clock::duration;
 
     void start() {
-        if (std::exchange(fIsTiming, true))
-            fStart = Clock::now();
+        if (!std::exchange(active_, true))
+            start_ = Clock::now();
     }
 
     void stop() {
-        if (std::exchange(fIsTiming, false))
-            fCumTime += Clock::now() - fStart;
+        if (std::exchange(active_, false)) {
+            auto elapsed = Clock::now() - start_;
+            cumTime_    += elapsed;
+        }
     }
 
-    void reset() { fCumTime = {}; }
+    void reset() { cumTime_ = {}; }
 
-    Duration time() { return fCumTime; }
+    Duration time() { return cumTime_; }
+
+    template <typename F,                             //
+              typename R   = std::invoke_result_t<F>, //
+              bool is_void = std::is_void_v<std::decay_t<R>>>
+        requires(std::invocable<F> && not std::is_reference_v<R>)
+    auto timed(F action) try {
+        start();
+        if constexpr (is_void) {
+            action();
+            stop();
+        } else {
+            auto r = action();
+            stop();
+            return std::move(r);
+        }
+    } catch (...) {
+        stop();
+        throw;
+    }
 
   private:
-    bool              fIsTiming = false; // are we between start and stop?
-    Clock::time_point fStart;            // time when we hit the start button
-    Duration          fCumTime;          // the cummulative time
+    bool              active_  = false;                   // are we between start and stop?
+    Clock::time_point start_   = {};                      // time when we hit the start button
+    Duration          cumTime_ = std::chrono::seconds(0); // the cummulative time
 };
+
+#include <map>
+extern std::map<std::string_view, StopWatch> gTimers;
+
+#define TIMED(action) gTimers[#action].timed([&] -> decltype(auto) { return action; })
