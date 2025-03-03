@@ -13,11 +13,9 @@ set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG}   -fsanitize=address -fsan
 
 add_executable(pgn2pgc pgnpgc3.cpp
     chess_2.cpp
-# memcheck.cpp
     stpwatch.cpp
 )
 
-add_executable(test_pqueue pqueue_2.cpp)
 add_executable(test_chess2 chess_2.cpp
     stpwatch.cpp
 )

@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "pqueue_2.h"
 //!!? Rank and file mean row (y) and column (x) in chess
 
 #ifndef ALLOW_KING_PROMOTION
@@ -130,9 +129,7 @@ namespace pgn2pgc::Chess {
         std::string&       SAN() { return SAN_; }
 
         bool operator<(ChessMoveSAN const& b) const { return SAN_ < b.SAN_; }
-        bool operator==(ChessMoveSAN const& b) const { return SAN_ == b.SAN_; }
 
-      private:
         ChessMove   move_{};
         std::string SAN_{};
     };
@@ -144,15 +141,10 @@ namespace pgn2pgc::Chess {
     };
 
     struct OrderedMoveList {
-        using SANQueue = support::PriorityQueue<ChessMoveSAN>;
-
         MoveList list;
-        SANQueue bysan;
+        std::vector<ChessMoveSAN> bysan;
 
-        void disambiguateMoves();
-
-      private:
-        void disambiguate(ChessMove const&, std::string&);
+        void disambiguate();
     };
 
     // char        ChessFileToChar(unsigned file); // 0 = a, 1 = b...

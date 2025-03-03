@@ -103,11 +103,6 @@ namespace pgn2pgc::Chess {
         }
     }
 
-    // Optimization of SAN disambiguation relies on Occupant enum ordering matching latin-1 SAN char ordering
-    static_assert(std::ranges::is_sorted(std::string_view(" BKNPQRbknpqr"), std::less<>{}));
-    static_assert(std::ranges::is_sorted(std::string_view(" BKNPQRbknpqr"), std::less<>{},
-                                         [](char c) { return LetterToOccupant(c); }));
-
     static constexpr inline Square LetterToSquare(char SAN_FEN_Letter) {
         return Square{LetterToOccupant(SAN_FEN_Letter)};
     }
@@ -572,8 +567,7 @@ namespace pgn2pgc::Chess {
     OrderedMoveList Board::genLegalMoveSet() {
         // should combine genLegalMoves and toSAN efficiently
         auto moves = genLegalMoves<OrderedMoveList>();
-        // disambiguateAllMoves
-        moves.disambiguateMoves();
+        moves.disambiguate();
         return moves;
     }
 
@@ -592,7 +586,7 @@ namespace pgn2pgc::Chess {
             return;
 #endif
         moves.list.add(mv);
-        moves.bysan.add({mv, mv.ambiguousSAN()});
+        moves.bysan.push_back({mv, mv.ambiguousSAN()});
     }
 
     void Board::removeIllegalMoves(OrderedMoveList& moves) const {
@@ -600,12 +594,12 @@ namespace pgn2pgc::Chess {
         bool     isFound     = false;
         Occupant activeKing  = toMove() == ToMove::white ? whiteKing : blackKing;
 
-        RankFile targetSquare;
+        RankFile kingLocation;
 
         for (int r = 0; r < ranks() && !isFound; ++r)
             for (int f = 0; f < files() && !isFound; ++f) {
                 if (at(r, f) == activeKing) {
-                    targetSquare = {r, f};
+                    kingLocation = {r, f};
                     isFound      = true;
                 }
             }
@@ -614,32 +608,31 @@ namespace pgn2pgc::Chess {
             return; // there is no king on the board
         }
 
-        Board b = *this;
-        for (unsigned i = 0; i < list.size(); b = *this) {
-            ChessMove m = list[i];
+        assert(list.size() == allSAN.size());
+        auto lit = list.begin();
+        auto sit = allSAN.begin();
+        for (Board b = *this; lit != list.end(); b = *this) {
+            ChessMove const& m = *lit;
             b.applyMove(m);
             b.switchMove();
 
+            assert(m == sit->move());
             if (b.at(m.to()) == whiteKing || b.at(m.to()) == blackKing) {
                 if (b.canCaptureSquare(m.to())) {
-                    list.remove(i);
-                    for (unsigned j = 0; j < allSAN.size(); ++j)
-                        if (allSAN[j].move() == m) {
-                            allSAN.remove(j);
-                            break;
-                        }
-                } else
-                    ++i;
+                    list.erase(lit);
+                    allSAN.erase(sit);
+                } else {
+                    ++lit;
+                    ++sit;
+                }
             } else {
-                if (b.canCaptureSquare(targetSquare)) {
-                    list.remove(i);
-                    for (unsigned j = 0; j < allSAN.size(); ++j)
-                        if (allSAN[j].move() == m) {
-                            allSAN.remove(j);
-                            break;
-                        }
-                } else
-                    ++i;
+                if (b.canCaptureSquare(kingLocation)) {
+                    list.erase(lit);
+                    allSAN.erase(sit);
+                } else {
+                    ++lit;
+                    ++sit;
+                }
             }
         }
     }
@@ -1152,54 +1145,44 @@ namespace pgn2pgc::Chess {
         return false;
     }
 
-    void OrderedMoveList::disambiguate(ChessMove const& move, std::string& san) {
-        if (san.length()) {
-            bool conflict = false, rankConflict = false, fileConflict = false;
-            for (int i = 0; i < ssize(bysan); ++i) {
-                auto& altMv = bysan[i].move();
-                if (altMv.to() == move.to() &&     // the same 'to' square
-                    altMv != move &&               // not the same move
-                    move.actor() == altMv.actor()) // same type of piece
-                {
-                    conflict = true;
-                    if (move.from().rank == altMv.from().rank)
-                        rankConflict = true;
-                    else if (move.from().file == altMv.from().file)
-                        fileConflict = true;
-                    if (rankConflict && fileConflict)
-                        break; // if you have two conflicts, no need to continue
-                }
-            }
-            // resolve if the piece is on same file of rank (if there are three same
-            // pieces then use file and rank)
-            if (conflict && !rankConflict && !fileConflict) {
-                san.insert(1, 1, FileToChar(move.from().file));
-            } else if (conflict && !rankConflict) {
-                san.insert(1, 1, RankToChar(move.from().rank));
-            } else if (fileConflict && rankConflict) {
-                san.insert(1, {FileToChar(move.from().file), RankToChar(move.from().rank)});
-            } else if (rankConflict) {
-                san.insert(1, 1, FileToChar(move.from().file));
-            }
-        }
-    }
+    void OrderedMoveList::disambiguate() {
+        std::stable_sort(bysan.begin(), bysan.end());
+        auto match = [](ChessMoveSAN const& a, ChessMoveSAN const& b) { return a.SAN() == b.SAN(); };
 
-    void OrderedMoveList::disambiguateMoves() {
-        auto& [list, allSAN] = *this;
-        bool ambiguity       = false;
-        int  i;
-        for (i = 0; i < ssize(allSAN) - 1; ++i) {
-            if (allSAN[i] == allSAN[i + 1]) {
-                disambiguate(allSAN[i].move(), allSAN[i].SAN());
-                ambiguity = true;
-            } else if (ambiguity) {
-                disambiguate(allSAN[i].move(), allSAN[i].SAN());
-                ambiguity = false;
+        for (auto&& group : std::views::chunk_by(bysan, match))
+            if (ssize(group) > 1) {
+                for (auto& [move, san] : group) {
+                    assert(san.length() > 1);
+
+                    bool conflict = false, rankConflict = false, fileConflict = false;
+                    for (auto const& [alt, _] : group) {
+                        assert(alt.to() == move.to() &&      // the same 'to' square
+                               move.actor() == alt.actor()); // same type of piece
+
+                        if (alt != move) { // not the same move
+                            conflict = true;
+                            if (move.from().rank == alt.from().rank)
+                                rankConflict = true;
+                            else if (move.from().file == alt.from().file)
+                                fileConflict = true;
+                            if (rankConflict && fileConflict)
+                                break; // if you have two conflicts, no need to continue
+                        }
+                    }
+                    // resolve if the piece is on same file of rank (if there are three same
+                    // pieces then use file and rank)
+                    if (conflict && !rankConflict && !fileConflict)
+                        san.insert(1, 1, FileToChar(move.from().file));
+                    else if (conflict && !rankConflict)
+                        san.insert(1, 1, RankToChar(move.from().rank));
+                    else if (fileConflict && rankConflict)
+                        san.insert(1, {FileToChar(move.from().file), RankToChar(move.from().rank)});
+                    else if (rankConflict)
+                        san.insert(1, 1, FileToChar(move.from().file));
+                }
+
+                // std::sort(group.begin(), group.end());
             }
-        }
-        if (ambiguity) { // for the last element
-            disambiguate(allSAN[i].move(), allSAN[i].SAN());
-        }
     }
 
     // returns if the person to move is in check
