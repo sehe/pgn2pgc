@@ -168,28 +168,42 @@ namespace pgn2pgc::Chess {
     //-----------------------------------------------------------------------------
     class Board {
       public:
-        Board();
-
-        bool processFEN(std::string_view FEN); // true if valid position, false otherwise
-
         enum class ToMove { white, black, endOfGame };
         enum Castlings { noCastle = 0, whiteKS = 1, whiteQS = 2, blackKS = 4, blackQS = 8 };
         enum EnPassant { allCaptures = -2, noCaptures = -1 };
         // all means don't care, all captures are possible, 1 - fFile for the file wehere ep is possible
 
+        Board();
+
+        bool processFEN(std::string_view FEN); // true if valid position, false otherwise
+
+        // adds the moves to the list and the SAN representations to the queue
+        void genLegalMoveSet(OrderedMoveList&);
+
+        // throws EmptyMove, IllegalMove, InvalidSAN
+        ChessMove parseSAN(std::string_view san, MoveList const& legal) const;
+
+        // no ambiguities, move is not checked for legality
+        std::string toSAN(ChessMove const&, MoveList const&) const;
+
+        bool processMove(ChessMove const& m, MoveList&);
+
+        void display();
+
+      private:
         ToMove toMove() const { return toMove_; }
 
-        // returns false if move is not legal
         void switchMove() {
             if (toMove_ == ToMove::black)
                 toMove_ = ToMove::white;
             else if (toMove_ == ToMove::white)
                 toMove_ = ToMove::black;
         } // private
+
+        // returns false if move is not legal
         bool applyMove(ChessMove const&);     // private, need to remove calls to external functions
         bool processMove(ChessMove const& m); // make move and change status of game,
                                               // colorToMove etc
-        bool processMove(ChessMove const& m, MoveList&);
         bool isWhiteToMove() const { return toMove_ == ToMove::white; }
         bool isBlackToMove() const { return toMove_ == ToMove::black; }
 
@@ -199,20 +213,10 @@ namespace pgn2pgc::Chess {
 
         int enPassant() const { return enPassantFile_; }
 
-        int ranks() const { return gRanks; }
-        int files() const { return gFiles; }
-
-        // adds the moves to the list and the SAN representations to the queue
-        void genLegalMoveSet(OrderedMoveList&);
-
-        // no ambiguities, move is not checked for legality
-        std::string toSAN(ChessMove const&, MoveList const&) const;
-
-        ChessMove parseSAN(std::string_view san, MoveList const& legal) const;
+        constexpr int ranks() const { return gRanks; }
+        constexpr int files() const { return gFiles; }
 
         bool canCaptureSquare(RankFile) const;
-
-        void display();
 
 #ifdef NDEBUG
         Square const& at(int rank, int file) const { return fBoard[rank][file]; }
@@ -230,10 +234,6 @@ namespace pgn2pgc::Chess {
         void addMove(ChessMove, MoveList& moves) const;
         void addMove(ChessMove, OrderedMoveList& moves) const;
 
-        // all legal moves are added to the list, including castling
-        template <typename Moves>
-            requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
-        inline void genLegalMoves(Moves& moves) const;
         std::string ambiguousSAN(ChessMove const&) const;
         void        removeIllegalMoves(OrderedMoveList&) const;
 
@@ -250,6 +250,11 @@ namespace pgn2pgc::Chess {
         unsigned   moveNumber_    = 1;
 
         //-----------------------------------------------------------------------------
+        // all legal moves are added to the list, including castling
+        template <typename Moves>
+            requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
+        inline void genLegalMoves(Moves& moves) const;
+
         // pseudoLegal: not castling, and not worrying about being left in check
         template <typename Moves>
             requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>

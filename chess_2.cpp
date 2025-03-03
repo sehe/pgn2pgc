@@ -439,9 +439,8 @@ namespace pgn2pgc::Chess {
             case whiteKing:
             case blackKing:
                 // castling
-                if (move.from().rank == move.to().rank && move.from().rank == (at(move.from()).isWhite())
-                        ? 0
-                        : ranks() - 1) {
+                if (move.from().rank == move.to().rank &&
+                    (move.from().rank == (at(move.from()).isWhite() ? 0 : ranks() - 1))) {
                     if (move.from().file - move.to().file < -1) {
                         o << "O-O";
                         break;
@@ -674,13 +673,13 @@ namespace pgn2pgc::Chess {
     void Board::removeIllegalMoves(OrderedMoveList& moves) const {
         auto& [list, allSAN] = moves;
         bool     isFound     = false;
-        Occupant target      = toMove() == ToMove::white ? whiteKing : blackKing;
+        Occupant activeKing  = toMove() == ToMove::white ? whiteKing : blackKing;
 
         RankFile targetSquare;
 
         for (int r = 0; r < ranks() && !isFound; ++r)
             for (int f = 0; f < files() && !isFound; ++f) {
-                if (at(r, f) == target) {
+                if (at(r, f) == activeKing) {
                     targetSquare = {r, f};
                     isFound      = true;
                 }
@@ -751,8 +750,8 @@ namespace pgn2pgc::Chess {
             case whiteKing:
             case blackKing:
                 // castling
-                if (m.from().rank == m.to().rank && m.from().rank == (at(m.from()).isWhite()) ? 0
-                                                                                              : ranks() - 1) {
+                if (m.from().rank == m.to().rank &&
+                    (m.from().rank == (at(m.from()).isWhite() ? 0 : ranks() - 1))) {
                     if ((signed)m.from().file - (signed)m.to().file < -1) {
                         o << "O-O";
                         break;
@@ -1225,11 +1224,11 @@ int main() {
     while (std::cin.good()) {
 
         b.display();
-        pgn2pgc::Chess::OrderedMoveList set;
-        b.genLegalMoveSet(set);
+        pgn2pgc::Chess::OrderedMoveList moves;
+        b.genLegalMoveSet(moves);
         std::cout << "\n";
 
-        for (auto& mv : set.bysan)
+        for (auto& mv : moves.bysan)
             std::cout << mv.SAN() << "\t";
 
         std::cout << "\nEnter Move (or end): ";
@@ -1239,10 +1238,10 @@ int main() {
         if (!strcmp(buf, "end"))
             break;
 
-        auto        move = b.parseSAN(buf, set.list); // TODO handle MoveError
-        std::string SAN  = b.toSAN(move, set.list);
+        auto        move = b.parseSAN(buf, moves.list); // TODO handle MoveError
+        std::string SAN  = b.toSAN(move, moves.list);
 
-        b.processMove(move);
+        b.processMove(move, moves.list);
 
         std::cout << "\n Moved: '" << SAN.c_str() << "' ";
     }
