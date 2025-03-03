@@ -16,6 +16,8 @@
 #endif
 
 namespace pgn2pgc::Chess {
+    static constexpr int gRanks = 8, gFiles = 8;
+
     enum class Occupant {
         noPiece,
         whiteBishop,
@@ -88,8 +90,12 @@ namespace pgn2pgc::Chess {
         };
 
         constexpr ChessMove(Occupant actor = Occupant::noPiece, int y1 = 0, int x1 = 0, int y2 = 0,
-                            int x2 = 0, enum Type kind = normal)
-            : actor_(actor), from_{y1, x1}, to_{y2, x2}, type_(kind) {}
+                            int x2 = 0, enum Type type = normal)
+            : actor_(actor)
+            , capture_(type == whiteEnPassant || type == blackEnPassant)
+            , from_{y1, x1}
+            , to_{y2, x2}
+            , type_(type) {}
 
         constexpr auto operator<=>(ChessMove const& rhs) const = default;
         constexpr bool isPromo() const {
@@ -102,11 +108,16 @@ namespace pgn2pgc::Chess {
         constexpr RankFile to() const { return to_; }
         constexpr Type const& type() const { return type_; }
         constexpr Type&       type() { return type_; }
+        constexpr bool const& isCapture() const { return capture_; }
+        constexpr bool&       isCapture() { return capture_; }
+
+        constexpr std::string ambiguousSAN() const;
 
       private:
         // row from, file from, row to, file to //!?? Keep signed int so that can
         // use in expressions that depend on signed values
-        Occupant actor_ = Occupant::noPiece;
+        Occupant actor_   = Occupant::noPiece;
+        bool     capture_ = false;
         RankFile from_, to_;
         Type     type_ = normal;
     };
@@ -232,8 +243,7 @@ namespace pgn2pgc::Chess {
         void addMove(ChessMove, MoveList& moves) const;
         void addMove(ChessMove, OrderedMoveList& moves) const;
 
-        std::string ambiguousSAN(ChessMove const&) const;
-        void        removeIllegalMoves(OrderedMoveList&) const;
+        void removeIllegalMoves(OrderedMoveList&) const;
 
         static constexpr int gRanks = 8, gFiles = 8;
         using Rank   = std::array<Square, gFiles>;

@@ -281,102 +281,6 @@ namespace pgn2pgc::Chess {
         return true;
     }
 
-    // all legal moves are added to the list, including castling
-    template <typename Moves>
-        requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
-    inline Moves Board::genLegalMoves() const {
-        auto moves = genPseudoLegalMoves<Moves>();
-
-        // castling moves
-        if (isWhiteToMove() && (getCastle() & (whiteKS | whiteQS))) {
-            // search for king on first rank
-            for (int file = 0; file < files(); ++file) {
-                if (at(0, file) == whiteKing) {
-                    if (getCastle() & whiteKS) {
-                        bool pieceInWay = false;
-                        for (int j = file + 1; j < files() - 1; ++j)
-                            if (!at(0, j).isEmpty())
-                                pieceInWay = true;
-
-                        if (!pieceInWay && at(0, files() - 1) == whiteRook && file + 2 < files()) {
-                            if (!IsInCheck() && !WillBeInCheck({Occupant::whiteKing, 0, file, 0, file + 1}))
-                                addMove({Occupant::whiteKing, 0, file, 0, file + 2, ChessMove::whiteCastleKS},
-                                        moves);
-                        }
-                    }
-                    if (getCastle() & whiteQS) {
-                        bool pieceInWay = false;
-                        for (int j = file - 1; j > 1; --j)
-                            if (!at(0, j).isEmpty())
-                                pieceInWay = true;
-
-                        if (!pieceInWay && at(0, 0) == whiteRook && file - 2 > 0) {
-                            if (!IsInCheck() &&
-                                !WillBeInCheck(
-                                    {Occupant::whiteKing, 0, file, 0, file - 1})) // cannot castle through
-                                                                                  // check, or when in check
-                                addMove({Occupant::whiteKing, 0, file, 0, file - 2, ChessMove::whiteCastleQS},
-                                        moves);
-                        }
-                    }
-                    break;
-                }
-            }
-
-        } else if (isBlackToMove() && (getCastle() & (blackKS | blackQS))) {
-            // search for king on back rank
-            for (int file = 0; file < files(); ++file) {
-                if (at(ranks() - 1, file) == blackKing) {
-                    if (getCastle() & blackKS) {
-                        bool pieceInWay = false;
-                        for (int j = file + 1; j < files() - 1; ++j)
-                            if (!at(ranks() - 1, j).isEmpty())
-                                pieceInWay = true;
-
-                        if (!pieceInWay && at(ranks() - 1, files() - 1) == blackRook && file + 2 < files()) {
-                            if (!IsInCheck() &&
-                                !WillBeInCheck(
-                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 1})) {
-                                addMove({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 2,
-                                         ChessMove::blackCastleKS},
-                                        moves);
-                            }
-                        }
-                    }
-                    if (getCastle() & blackQS) {
-                        bool pieceInWay = false;
-                        for (int j = file - 1; j > 1; --j)
-                            if (!at(ranks() - 1, j).isEmpty())
-                                pieceInWay = true;
-
-                        if (!pieceInWay && at(ranks() - 1, 0) == blackRook && file - 2 > 0) {
-                            if (!IsInCheck() &&
-                                !WillBeInCheck(
-                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 1}))
-                                addMove({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 2,
-                                         ChessMove::blackCastleQS},
-                                        moves);
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-
-        if constexpr (std::is_same_v<Moves, MoveList>) {
-            for (int file = 0; file < ssize(moves);) {
-                if (WillBeInCheck(moves[file]))
-                    moves.remove(file);
-                else
-                    ++file;
-            };
-        } else {
-            TIMED(removeIllegalMoves(moves));
-        }
-
-        return moves;
-    }
-
     bool Board::processMove(ChessMove const& m, MoveList& list) {
         auto& source = at(m.from());
         auto& target = at(m.to());
@@ -682,12 +586,13 @@ namespace pgn2pgc::Chess {
     }
 
     inline void Board::addMove(ChessMove mv, OrderedMoveList& moves) const {
+        mv.isCapture() = !at(mv.to()).isEmpty();
 #if !ALLOW_KING_PROMOTION
         if (mv.type() == ChessMove::promoKing)
             return;
 #endif
         moves.list.add(mv);
-        moves.bysan.add({mv, ambiguousSAN(mv)});
+        moves.bysan.add({mv, mv.ambiguousSAN()});
     }
 
     void Board::removeIllegalMoves(OrderedMoveList& moves) const {
@@ -741,27 +646,45 @@ namespace pgn2pgc::Chess {
 
     // doesn't worry about any ambiguities, nor does it indicate check
     // or checkmate status (which don't alter sort order anyway)
-    std::string Board::ambiguousSAN(ChessMove const& m) const {
-        std::ostringstream o;
+    constexpr std::string ChessMove::ambiguousSAN() const {
+        using namespace std::string_view_literals;
+        std::array<char, 10> buf{};
+        size_t               i = 0;
 
-        switch (at(m.from()).contents()) {
+        switch (actor()) {
             case whitePawn:
             case blackPawn:
-                o << FileToChar(m.from().file);
+                buf[i++] = FileToChar(from().file);
 
-                if (m.from().file != m.to().file) {
-                    o << 'x' << FileToChar(m.to().file)
-                      << RankToChar(m.to().rank); // Capture; use style "exd5"
+                if (from().file != to().file) {
+                    buf[i++] = 'x'; // Capture; use style "exd5"
+                    buf[i++] = FileToChar(to().file);
+                    buf[i++] = RankToChar(to().rank);
                 } else {
-                    o << RankToChar(m.to().rank); // Non-capture; use style "e5"
+                    buf[i++] = RankToChar(to().rank); // Non-capture; use style "e5"
                 }
-                switch (m.type()) {
-                    case ChessMove::promoBishop: o << "=B"; break;
-                    case ChessMove::promoKnight: o << "=N"; break;
-                    case ChessMove::promoRook: o << "=R"; break;
-                    case ChessMove::promoQueen: o << "=Q"; break;
+                switch (type()) {
+                    case ChessMove::promoBishop:
+                        buf[i++] = '=';
+                        buf[i++] = 'B';
+                        break;
+                    case ChessMove::promoKnight:
+                        buf[i++] = '=';
+                        buf[i++] = 'N';
+                        break;
+                    case ChessMove::promoRook:
+                        buf[i++] = '=';
+                        buf[i++] = 'R';
+                        break;
+                    case ChessMove::promoQueen:
+                        buf[i++] = '=';
+                        buf[i++] = 'Q';
+                        break;
 #if ALLOW_KING_PROMOTION
-                    case ChessMove::promoKing: o << "=K"; break;
+                    case ChessMove::promoKing:
+                        buf[i++] = '=';
+                        buf[i++] = 'K';
+                        break;
 #endif
                     default: break; // do Nothing
                 }
@@ -769,30 +692,35 @@ namespace pgn2pgc::Chess {
 
             case whiteKing:
             case blackKing:
+                static constexpr std::string_view O_O   = "O-O";
+                static constexpr std::string_view O_O_O = "O-O-O";
                 // castling
-                if (m.from().rank == m.to().rank &&
-                    (m.from().rank == (at(m.from()).isWhite() ? 0 : ranks() - 1))) {
-                    if ((signed)m.from().file - (signed)m.to().file < -1) {
-                        o << "O-O";
+                if (from().rank == to().rank &&
+                    (from().rank == (Square(actor()).isWhite() ? 0 : gRanks - 1))) {
+                    if (from().file - to().file < -1) {
+                        std::copy(O_O.begin(), O_O.end(), buf.data() + i);
+                        i += O_O.size();
                         break;
-                    } else if ((signed)m.from().file - (signed)m.to().file > 1) {
-                        o << "O-O-O";
+                    } else if (from().file - to().file > 1) {
+                        std::copy(O_O_O.begin(), O_O_O.end(), buf.data() + i);
+                        i += O_O_O.size();
                         break;
                     }
                 }
 
                 [[fallthrough]];
             default:
-                o << (char)toupper(at(m.from()).pieceToChar());
+                buf[i++] = (char)toupper(PieceToChar(actor()));
 
                 // determine if it's a capture
-                if (!at(m.to()).isEmpty())
-                    o << 'x';
+                if (isCapture())
+                    buf[i++] = 'x';
 
                 // destination square
-                o << FileToChar(m.to().file) << RankToChar(m.to().rank);
+                buf[i++] = FileToChar(to().file);
+                buf[i++] = RankToChar(to().rank);
         }
-        return std::move(o).str();
+        return std::string(buf.data(), i);
     }
 
     //-----------------------------------------------------------------------------
@@ -997,6 +925,102 @@ namespace pgn2pgc::Chess {
                     default: assert(0); // not Reached
                 }
             }
+
+        return moves;
+    }
+
+    // all legal moves are added to the list, including castling
+    template <typename Moves>
+        requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
+    inline Moves Board::genLegalMoves() const {
+        auto moves = genPseudoLegalMoves<Moves>();
+
+        // castling moves
+        if (isWhiteToMove() && (getCastle() & (whiteKS | whiteQS))) {
+            // search for king on first rank
+            for (int file = 0; file < files(); ++file) {
+                if (at(0, file) == whiteKing) {
+                    if (getCastle() & whiteKS) {
+                        bool pieceInWay = false;
+                        for (int j = file + 1; j < files() - 1; ++j)
+                            if (!at(0, j).isEmpty())
+                                pieceInWay = true;
+
+                        if (!pieceInWay && at(0, files() - 1) == whiteRook && file + 2 < files()) {
+                            if (!IsInCheck() && !WillBeInCheck({Occupant::whiteKing, 0, file, 0, file + 1}))
+                                addMove({Occupant::whiteKing, 0, file, 0, file + 2, ChessMove::whiteCastleKS},
+                                        moves);
+                        }
+                    }
+                    if (getCastle() & whiteQS) {
+                        bool pieceInWay = false;
+                        for (int j = file - 1; j > 1; --j)
+                            if (!at(0, j).isEmpty())
+                                pieceInWay = true;
+
+                        if (!pieceInWay && at(0, 0) == whiteRook && file - 2 > 0) {
+                            if (!IsInCheck() &&
+                                !WillBeInCheck(
+                                    {Occupant::whiteKing, 0, file, 0, file - 1})) // cannot castle through
+                                                                                  // check, or when in check
+                                addMove({Occupant::whiteKing, 0, file, 0, file - 2, ChessMove::whiteCastleQS},
+                                        moves);
+                        }
+                    }
+                    break;
+                }
+            }
+
+        } else if (isBlackToMove() && (getCastle() & (blackKS | blackQS))) {
+            // search for king on back rank
+            for (int file = 0; file < files(); ++file) {
+                if (at(ranks() - 1, file) == blackKing) {
+                    if (getCastle() & blackKS) {
+                        bool pieceInWay = false;
+                        for (int j = file + 1; j < files() - 1; ++j)
+                            if (!at(ranks() - 1, j).isEmpty())
+                                pieceInWay = true;
+
+                        if (!pieceInWay && at(ranks() - 1, files() - 1) == blackRook && file + 2 < files()) {
+                            if (!IsInCheck() &&
+                                !WillBeInCheck(
+                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 1})) {
+                                addMove({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file + 2,
+                                         ChessMove::blackCastleKS},
+                                        moves);
+                            }
+                        }
+                    }
+                    if (getCastle() & blackQS) {
+                        bool pieceInWay = false;
+                        for (int j = file - 1; j > 1; --j)
+                            if (!at(ranks() - 1, j).isEmpty())
+                                pieceInWay = true;
+
+                        if (!pieceInWay && at(ranks() - 1, 0) == blackRook && file - 2 > 0) {
+                            if (!IsInCheck() &&
+                                !WillBeInCheck(
+                                    {Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 1}))
+                                addMove({Occupant::blackKing, ranks() - 1, file, ranks() - 1, file - 2,
+                                         ChessMove::blackCastleQS},
+                                        moves);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        if constexpr (std::is_same_v<Moves, MoveList>) {
+            for (int file = 0; file < ssize(moves);) {
+                if (WillBeInCheck(moves[file]))
+                    moves.remove(file);
+                else
+                    ++file;
+            };
+        } else {
+            TIMED(removeIllegalMoves(moves));
+        }
 
         return moves;
     }
