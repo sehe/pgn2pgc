@@ -316,11 +316,10 @@ namespace {
 
             gTimers[__FUNCTION__].timed([&] {
                 for (size_t i = 0; auto& mv : moves) {
-                    OrderedMoveList legal;
-                    TIMED(game.genLegalMoveSet(legal));
+                    OrderedMoveList legal = TIMED(game.genLegalMoveSet());
 
                     auto [cm, san] = gTimers["ParseSAN & toSAN"].timed([&] {
-                        auto cm = game.parseSAN(mv, legal.list);
+                        auto cm = game.resolveSAN(mv, legal.list);
                         return std::tuple(cm, game.toSAN(cm, legal.list));
                     });
 

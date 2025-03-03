@@ -12,7 +12,7 @@ namespace pgn2pgc::Chess {
 
     static void RemoveWhiteSpace(std::string& s) {
         if (auto b = s.find_first_not_of(" \t\n\f\r"), e = s.find_last_not_of(" \t\n\f\r");
-                b == std::string::npos) {
+            b == std::string::npos) {
             s.clear();
         } else {
             s = s.substr(b, e - b + 1);
@@ -181,7 +181,7 @@ namespace pgn2pgc::Chess {
         return true;
     }
 
-    void Board::display() {
+    void Board::display() const {
         for (int i = ranks() - 1; i >= 0; --i) {
             std::cout << "\n" << i + 1 << " ";
             for (int j = 0; j < files(); ++j) {
@@ -205,9 +205,9 @@ namespace pgn2pgc::Chess {
         // general legality -- check etc.. ?? How much checking should be done here?
 
         if (at(move.from()).isEmpty() || IsSameColor(at(move.from()), at(move.to())) ||
-                (move.from() == move.to()) ||
-                (move.isEnPassant() && enPassantFile_ != allCaptures && enPassantFile_ != move.to().file) ||
-                toMove_ == ToMove::endOfGame) {
+            (move.from() == move.to()) ||
+            (move.isEnPassant() && enPassantFile_ != allCaptures && enPassantFile_ != move.to().file) ||
+            toMove_ == ToMove::endOfGame) {
             return false;
         }
 
@@ -218,32 +218,32 @@ namespace pgn2pgc::Chess {
             case ChessMove::whiteEnPassant: at(move.to() - RankFile{1, 0}) = noPiece; break;
             case ChessMove::blackEnPassant: at(move.to() + RankFile{1, 0}) = noPiece; break;
             case ChessMove::whiteCastleKS:
-                                            at(0, gFiles - 1)         = noPiece;
-                                            at(0, move.to().file - 1) = whiteRook;
-                                            break;
+                at(0, gFiles - 1)         = noPiece;
+                at(0, move.to().file - 1) = whiteRook;
+                break;
             case ChessMove::whiteCastleQS:
-                                            at(0, 0)                  = noPiece;
-                                            at(0, move.to().file + 1) = whiteRook;
-                                            break;
+                at(0, 0)                  = noPiece;
+                at(0, move.to().file + 1) = whiteRook;
+                break;
             case ChessMove::blackCastleKS:
-                                            at(gRanks - 1, gFiles - 1)         = noPiece;
-                                            at(gRanks - 1, move.to().file - 1) = blackRook;
-                                            break;
+                at(gRanks - 1, gFiles - 1)         = noPiece;
+                at(gRanks - 1, move.to().file - 1) = blackRook;
+                break;
             case ChessMove::blackCastleQS:
-                                            at(gRanks - 1, 0)                  = noPiece;
-                                            at(gRanks - 1, move.to().file + 1) = blackRook;
-                                            break;
+                at(gRanks - 1, 0)                  = noPiece;
+                at(gRanks - 1, move.to().file + 1) = blackRook;
+                break;
             case ChessMove::promoQueen:
-                                            assert(move.to().rank == gRanks - 1 || move.to().rank == 0);
-                                            at(move.to()) = at(move.to()).isWhite() ? whiteQueen : blackQueen;
-                                            break;
+                assert(move.to().rank == gRanks - 1 || move.to().rank == 0);
+                at(move.to()) = at(move.to()).isWhite() ? whiteQueen : blackQueen;
+                break;
             case ChessMove::promoKnight:
-                                            at(move.to()) = at(move.to()).isWhite() ? whiteKnight : blackKnight;
-                                            break;
+                at(move.to()) = at(move.to()).isWhite() ? whiteKnight : blackKnight;
+                break;
             case ChessMove::promoRook: at(move.to()) = at(move.to()).isWhite() ? whiteRook : blackRook; break;
             case ChessMove::promoBishop:
-                                       at(move.to()) = at(move.to()).isWhite() ? whiteBishop : blackBishop;
-                                       break;
+                at(move.to()) = at(move.to()).isWhite() ? whiteBishop : blackBishop;
+                break;
 #if ALLOW_KING_PROMOTION
             case ChessMove::promoKing: at(move.to()) = at(move.to()).isWhite() ? whiteKing : blackKing; break;
 #endif
@@ -256,8 +256,8 @@ namespace pgn2pgc::Chess {
     // all legal moves are added to the list, including castling
     template <typename Moves>
         requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
-    inline void Board::genLegalMoves(Moves& moves) const {
-        genPseudoLegalMoves(moves);
+    inline Moves Board::genLegalMoves() const {
+        auto moves = genPseudoLegalMoves<Moves>();
 
         // castling moves
         if (isWhiteToMove() && (getCastle() & (whiteKS | whiteQS))) {
@@ -345,17 +345,13 @@ namespace pgn2pgc::Chess {
         } else {
             TIMED(removeIllegalMoves(moves));
         }
-    }
 
-    bool Board::processMove(ChessMove const& m) {
-        MoveList list;
-        genLegalMoves(list);
-        return processMove(m, list);
+        return moves;
     }
 
     bool Board::processMove(ChessMove const& m, MoveList& list) {
-        auto& source= at(m.from());
-        auto& target= at(m.to());
+        auto& source = at(m.from());
+        auto& target = at(m.to());
 
         int enPassant =                                          //
             source.isPawn() && abs((m.to() - m.from()).rank) > 1 //
@@ -415,7 +411,7 @@ namespace pgn2pgc::Chess {
              rankConflict = false; // use the file in case of a conflict, and rank if no file
                                    // conflict, and both if necessary (e.g. there are three
                                    // pieces accessing the same square)
-        switch (at(move.from()).contents()) {
+        switch (move.actor()) {
             case whitePawn:
             case blackPawn:
 
@@ -440,7 +436,7 @@ namespace pgn2pgc::Chess {
             case blackKing:
                 // castling
                 if (move.from().rank == move.to().rank &&
-                    (move.from().rank == (at(move.from()).isWhite() ? 0 : ranks() - 1))) {
+                    (move.from().rank == (Square(move.actor()).isWhite() ? 0 : ranks() - 1))) {
                     if (move.from().file - move.to().file < -1) {
                         o << "O-O";
                         break;
@@ -452,13 +448,13 @@ namespace pgn2pgc::Chess {
 
                 [[fallthrough]];
             default:
-                o << (char)toupper(at(move.from()).pieceToChar());
+                o << (char)toupper(Square(move.actor()).pieceToChar());
 
                 for (ChessMove const& alt : list) {
                     if (alt != move && // not the same move
                         alt.to().rank == move.to().rank &&
-                        alt.to().file == move.to().file &&                       // the same 'to' square
-                        at(move.from()).contents() == at(alt.from()).contents()) // same type of piece
+                        alt.to().file == move.to().file && // the same 'to' square
+                        move.actor() == alt.actor())       // same type of piece
                     {
                         conflict = true;
                         if (move.from().rank == alt.from().rank)
@@ -488,13 +484,13 @@ namespace pgn2pgc::Chess {
                 o << ChessFileToChar(move.to().file) << ChessRankToChar(move.to().rank);
 
                 // Check or Checkmate
-                //??! Removed for speed, and compatibility with Board::genLegalMoveSet()
+                //??! Removed for speed, and compatibility with genLegalMoveSet()
         }
         return o.str();
     }
 
     // throws EmptyMove, IllegalMove, InvalidSAN
-    ChessMove Board::parseSAN(std::string_view constSAN, MoveList const& list) const {
+    ChessMove Board::resolveSAN(std::string_view constSAN, MoveList const& list) const {
         ChessMove   move;
         std::string san(constSAN);
 
@@ -646,11 +642,12 @@ namespace pgn2pgc::Chess {
         throw IllegalMove{constSAN};
     }
 
-    void Board::genLegalMoveSet(OrderedMoveList& moves) {
+    OrderedMoveList Board::genLegalMoveSet() {
         // should combine genLegalMoves and toSAN efficiently
-        genLegalMoves(moves);
+        auto moves = genLegalMoves<OrderedMoveList>();
         // disambiguateAllMoves
         moves.disambiguateMoves();
+        return moves;
     }
 
     inline void Board::addMove(ChessMove mv, MoveList& moves) const {
@@ -782,9 +779,10 @@ namespace pgn2pgc::Chess {
     //
     template <typename Moves>
         requires std::is_base_of_v<MoveList, Moves> || std::is_base_of_v<OrderedMoveList, Moves>
-    void Board::genPseudoLegalMoves(Moves& moves) const {
+    Moves Board::genPseudoLegalMoves() const {
+        Moves moves;
         if (toMove() == ToMove::endOfGame)
-            return;
+            return moves;
 
         for (int rf = 0; rf < ranks(); ++rf)
             for (int ff = 0; ff < files(); ++ff) {
@@ -976,6 +974,8 @@ namespace pgn2pgc::Chess {
                     default: assert(0); // not Reached
                 }
             }
+
+        return moves;
     }
 
     // all moves that capture the square, square can be same color as person to move
@@ -1167,7 +1167,7 @@ namespace pgn2pgc::Chess {
             for (int f = 0; f < files() && !isFound; ++f) {
                 if (at(r, f).contents() == target) {
                     targetSquare = {r, f};
-                    isFound        = true;
+                    isFound      = true;
                 }
             }
 
@@ -1218,27 +1218,26 @@ int main() {
 
     std::cout << "\n '" << c << "' ";
     */
-    char                  buf[20];
     pgn2pgc::Chess::Board b;
 
     while (std::cin.good()) {
 
         b.display();
-        pgn2pgc::Chess::OrderedMoveList moves;
-        b.genLegalMoveSet(moves);
+        auto moves = b.genLegalMoveSet();
         std::cout << "\n";
 
         for (auto& mv : moves.bysan)
             std::cout << mv.SAN() << "\t";
 
         std::cout << "\nEnter Move (or end): ";
-        std::cin.getline(buf, sizeof(buf) / sizeof(buf[0]));
+        std::string buf;
+        getline(std::cin, buf);
         std::cout << "buffer: '" << buf << "' ";
 
-        if (!strcmp(buf, "end"))
+        if (buf == "end")
             break;
 
-        auto        move = b.parseSAN(buf, moves.list); // TODO handle MoveError
+        auto        move = b.resolveSAN(buf, moves.list); // TODO handle MoveError
         std::string SAN  = b.toSAN(move, moves.list);
 
         b.processMove(move, moves.list);
