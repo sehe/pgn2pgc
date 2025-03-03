@@ -28,12 +28,12 @@ namespace pgn2pgc::Chess {
         }
     }
 
-    static constexpr inline char ChessFileToChar(unsigned file) { return file + 'a'; }
-    static constexpr inline char ChessRankToChar(unsigned rank) { return rank + '1'; }
-    static constexpr inline int  ChessCharToFile(char file) { return file - 'a'; }
-    static constexpr inline int  ChessCharToRank(char rank) { return rank - '1'; }
+    static constexpr inline char FileToChar(unsigned file) { return file + 'a'; }
+    static constexpr inline char RankToChar(unsigned rank) { return rank + '1'; }
+    static constexpr inline int  CharToFile(char file) { return file - 'a'; }
+    static constexpr inline int  CharToRank(char rank) { return rank - '1'; }
     static std::ostream&         operator<<(std::ostream& os, RankFile const& f) {
-        return os << ChessFileToChar(f.file) << ChessRankToChar(f.rank);
+        return os << FileToChar(f.file) << RankToChar(f.rank);
     }
 
     // case insensitive
@@ -43,6 +43,25 @@ namespace pgn2pgc::Chess {
             if (toupper(ch) == toupper(c))
                 ++count;
         return count;
+    }
+
+    static constexpr inline char PieceToChar(Occupant pc) {
+        switch (pc) {
+            case whitePawn: return 'P';
+            case blackPawn: return 'p';
+            case whiteKnight: return 'N';
+            case blackKnight: return 'n';
+            case whiteBishop: return 'B';
+            case blackBishop: return 'b';
+            case whiteRook: return 'R';
+            case blackRook: return 'r';
+            case whiteQueen: return 'Q';
+            case blackQueen: return 'q';
+            case whiteKing: return 'K';
+            case blackKing: return 'k';
+            case noPiece: return ' ';
+            default: assert(0); return 'x'; // not Reached
+        }
     }
 
     constexpr inline char Square::pieceToChar() const {
@@ -65,7 +84,7 @@ namespace pgn2pgc::Chess {
     }
 
     //-----------------------------------------------------------------------------
-    static constexpr inline Square LetterToSquare(char SAN_FEN_Letter) {
+    static constexpr inline Occupant LetterToOccupant(char SAN_FEN_Letter) {
         switch (SAN_FEN_Letter) {
             case 'P': return whitePawn;
             case 'p': return blackPawn;
@@ -82,6 +101,15 @@ namespace pgn2pgc::Chess {
 
             default: return noPiece;
         }
+    }
+
+    // Optimization of SAN disambiguation relies on Occupant enum ordering matching latin-1 SAN char ordering
+    static_assert(std::ranges::is_sorted(std::string_view(" BKNPQRbknpqr"), std::less<>{}));
+    static_assert(std::ranges::is_sorted(std::string_view(" BKNPQRbknpqr"), std::less<>{},
+                                         [](char c) { return LetterToOccupant(c); }));
+
+    static constexpr inline Square LetterToSquare(char SAN_FEN_Letter) {
+        return Square{LetterToOccupant(SAN_FEN_Letter)};
     }
 
     // FEN notation of initial position
@@ -415,11 +443,11 @@ namespace pgn2pgc::Chess {
             case whitePawn:
             case blackPawn:
 
-                o << ChessFileToChar(move.from().file);
+                o << FileToChar(move.from().file);
                 if (move.from().file != move.to().file) {
                     o << 'x' << move.to(); // Capture; use style "exd5"
                 } else {
-                    o << ChessRankToChar(move.to().rank); // Non-capture; use style "e5"
+                    o << RankToChar(move.to().rank); // Non-capture; use style "e5"
                 }
                 switch (move.type()) {
                     case ChessMove::promoBishop: o << "=B"; break;
@@ -466,13 +494,13 @@ namespace pgn2pgc::Chess {
                 // resolve if the piece is on same file of rank (if there are three same
                 // pieces then use file and rank)
                 if (conflict && !rankConflict && !fileConflict) {
-                    o << ChessFileToChar(move.from().file);
+                    o << FileToChar(move.from().file);
                 } else if (conflict && !rankConflict) {
-                    o << ChessRankToChar(move.from().rank);
+                    o << RankToChar(move.from().rank);
                 } else if (fileConflict && rankConflict) {
-                    o << ChessFileToChar(move.from().file) << ChessRankToChar(move.from().rank);
+                    o << FileToChar(move.from().file) << RankToChar(move.from().rank);
                 } else if (rankConflict) {
-                    o << ChessFileToChar(move.from().file);
+                    o << FileToChar(move.from().file);
                 }
 
                 // determine if it's a capture
@@ -481,7 +509,7 @@ namespace pgn2pgc::Chess {
                 }
 
                 // destination square
-                o << ChessFileToChar(move.to().file) << ChessRankToChar(move.to().rank);
+                o << FileToChar(move.to().file) << RankToChar(move.to().rank);
 
                 // Check or Checkmate
                 //??! Removed for speed, and compatibility with genLegalMoveSet()
@@ -566,15 +594,14 @@ namespace pgn2pgc::Chess {
             if (san.length() == 1) // f
             {
                 for (auto& match : list)
-                    if (match.from().file == ChessCharToFile(san[0]) &&
+                    if (match.from().file == CharToFile(san[0]) &&
                         (move.isPromo() ? move.type() == match.type() : true) && at(match.from()) == piece) {
                         return match;
                     }
             } else if (san.length() == 2 && isdigit(san[1])) // f4
             {
                 for (auto& match : list)
-                    if (match.from().file == ChessCharToFile(san[0]) &&
-                        match.to().rank == ChessCharToRank(san[1]) &&
+                    if (match.from().file == CharToFile(san[0]) && match.to().rank == CharToRank(san[1]) &&
                         (move.isPromo() ? move.type() == match.type() : true) && at(match.from()) == piece) {
                         return match;
                     }
@@ -583,27 +610,23 @@ namespace pgn2pgc::Chess {
             {
                 assert(!isdigit(san[1]));
                 for (auto& match : list)
-                    if (match.from().file == ChessCharToFile(san[0]) &&
-                        match.to().file == ChessCharToFile(san[1]) &&
+                    if (match.from().file == CharToFile(san[0]) && match.to().file == CharToFile(san[1]) &&
                         (move.isPromo() ? move.type() == match.type() : true) && at(match.from()) == piece) {
                         return match;
                     }
             } else if (san.length() == 3) // ef4
             {
                 for (auto& match : list)
-                    if (match.from().file == ChessCharToFile(san[0]) &&
-                        match.to().file == ChessCharToFile(san[1]) &&
-                        match.to().rank == ChessCharToRank(san[2]) &&
+                    if (match.from().file == CharToFile(san[0]) && match.to().file == CharToFile(san[1]) &&
+                        match.to().rank == CharToRank(san[2]) &&
                         (move.isPromo() ? move.type() == match.type() : true) && at(match.from()) == piece) {
                         return match;
                     }
             } else if (san.length() == 4) // e3f4
             {
                 for (auto& match : list)
-                    if (match.from().file == ChessCharToFile(san[0]) &&
-                        match.from().rank == ChessCharToRank(san[1]) &&
-                        match.to().file == ChessCharToFile(san[2]) &&
-                        match.to().rank == ChessCharToRank(san[3]) &&
+                    if (match.from().file == CharToFile(san[0]) && match.from().rank == CharToRank(san[1]) &&
+                        match.to().file == CharToFile(san[2]) && match.to().rank == CharToRank(san[3]) &&
                         (move.isPromo() ? move.type() == match.type() : true) && at(match.from()) == piece) {
                         return match;
                     }
@@ -614,22 +637,22 @@ namespace pgn2pgc::Chess {
                 throw InvalidSAN{constSAN};
 
             for (auto& match : list)
-                if (match.to().file == ChessCharToFile(san[sanLength - 2]) &&
-                    match.to().rank == ChessCharToRank(san[sanLength - 1]) && at(match.from()) == piece) {
+                if (match.to().file == CharToFile(san[sanLength - 2]) &&
+                    match.to().rank == CharToRank(san[sanLength - 1]) && at(match.from()) == piece) {
                     switch (sanLength) {
                         case 3: return match; // Nf3
                         case 4:
-                            if (isdigit(san[1]) && match.from().rank == ChessCharToRank(san[1])) // N1f3
+                            if (isdigit(san[1]) && match.from().rank == CharToRank(san[1])) // N1f3
                             {
                                 return match;
-                            } else if (match.from().file == ChessCharToFile(san[1])) // Ngf3
+                            } else if (match.from().file == CharToFile(san[1])) // Ngf3
                             {
                                 return match;
                             }
                             break;
                         case 5:
-                            if (match.from().file == ChessCharToFile(san[1]) &&
-                                match.from().rank == ChessCharToRank(san[2])) // Ng1f3
+                            if (match.from().file == CharToFile(san[1]) &&
+                                match.from().rank == CharToRank(san[2])) // Ng1f3
                             {
                                 return match;
                             }
@@ -724,13 +747,13 @@ namespace pgn2pgc::Chess {
         switch (at(m.from()).contents()) {
             case whitePawn:
             case blackPawn:
-                o << ChessFileToChar(m.from().file);
+                o << FileToChar(m.from().file);
 
                 if (m.from().file != m.to().file) {
-                    o << 'x' << ChessFileToChar(m.to().file)
-                      << ChessRankToChar(m.to().rank); // Capture; use style "exd5"
+                    o << 'x' << FileToChar(m.to().file)
+                      << RankToChar(m.to().rank); // Capture; use style "exd5"
                 } else {
-                    o << ChessRankToChar(m.to().rank); // Non-capture; use style "e5"
+                    o << RankToChar(m.to().rank); // Non-capture; use style "e5"
                 }
                 switch (m.type()) {
                     case ChessMove::promoBishop: o << "=B"; break;
@@ -767,7 +790,7 @@ namespace pgn2pgc::Chess {
                     o << 'x';
 
                 // destination square
-                o << ChessFileToChar(m.to().file) << ChessRankToChar(m.to().rank);
+                o << FileToChar(m.to().file) << RankToChar(m.to().rank);
         }
         return std::move(o).str();
     }
@@ -1126,13 +1149,13 @@ namespace pgn2pgc::Chess {
             // resolve if the piece is on same file of rank (if there are three same
             // pieces then use file and rank)
             if (conflict && !rankConflict && !fileConflict) {
-                san.insert(1, 1, ChessFileToChar(move.from().file));
+                san.insert(1, 1, FileToChar(move.from().file));
             } else if (conflict && !rankConflict) {
-                san.insert(1, 1, ChessRankToChar(move.from().rank));
+                san.insert(1, 1, RankToChar(move.from().rank));
             } else if (fileConflict && rankConflict) {
-                san.insert(1, {ChessFileToChar(move.from().file), ChessRankToChar(move.from().rank)});
+                san.insert(1, {FileToChar(move.from().file), RankToChar(move.from().rank)});
             } else if (rankConflict) {
-                san.insert(1, 1, ChessFileToChar(move.from().file));
+                san.insert(1, 1, FileToChar(move.from().file));
             }
         }
     }

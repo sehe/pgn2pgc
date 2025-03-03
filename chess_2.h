@@ -18,18 +18,18 @@
 namespace pgn2pgc::Chess {
     enum class Occupant {
         noPiece,
-        whitePawn,
-        whiteKnight,
         whiteBishop,
-        whiteRook,
-        whiteQueen,
         whiteKing,
-        blackPawn,
-        blackKnight,
+        whiteKnight,
+        whitePawn,
+        whiteQueen,
+        whiteRook,
         blackBishop,
-        blackRook,
+        blackKing,
+        blackKnight,
+        blackPawn,
         blackQueen,
-        blackKing
+        blackRook,
     };
 
     struct Square {
