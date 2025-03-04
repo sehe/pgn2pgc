@@ -191,7 +191,7 @@ namespace pgn2pgc::Chess {
         // no ambiguities, move is not checked for legality
         std::string toSAN(ChessMove const&, MoveList const&) const;
 
-        bool processMove(ChessMove const& m, MoveList&);
+        bool processMove(ChessMove const& m);
 
         void display() const;
 

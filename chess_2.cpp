@@ -216,7 +216,7 @@ namespace pgn2pgc::Chess {
         std::cout << "\nCastle:      " << castle_;
         std::cout << "\nStatus:      " << std::to_underlying(status_);
         std::cout << "\nEnPassant:   " << enPassantFile_;
-        std::cout << "\nMove: " << moveNumber_;
+        std::cout << "\nMove:        " << moveNumber_;
         std::cout << "\nPlies Since: " << pliesSince_ << std::endl;
     }
 
@@ -276,7 +276,7 @@ namespace pgn2pgc::Chess {
         return true;
     }
 
-    bool Board::processMove(ChessMove const& m, MoveList& list) {
+    bool Board::processMove(ChessMove const& m) {
         auto& source = at(m.from());
         auto& target = at(m.to());
 
@@ -295,15 +295,15 @@ namespace pgn2pgc::Chess {
             case whiteKing: castle &= ~(whiteKS | whiteQS); break;
             case blackKing: castle &= ~(blackKS | blackQS); break;
             case whiteRook:
-                if (m.from().file < files() / 2)
+                if (m.from() == RankFile{0, 0})
                     castle &= ~whiteQS;
-                else
+                else if (m.from() == RankFile{0, files() - 1})
                     castle &= ~whiteKS;
                 break;
             case blackRook:
-                if (m.from().file < files() / 2)
+                if (m.from() == RankFile{ranks() - 1, 0})
                     castle &= ~blackQS;
-                else
+                else if (m.from() == RankFile{ranks() - 1, files() - 1})
                     castle &= ~blackKS;
                 break;
             default: break; // do Nothing
@@ -311,7 +311,6 @@ namespace pgn2pgc::Chess {
 
         // isLegal()
         if (toMove_ != ToMove::endOfGame && applyMove(m)) {
-            status_        = CheckStatus(list);
             enPassantFile_ = enPassant;
             pliesSince_    = plysSince;
             castle_        = castle;
@@ -322,6 +321,9 @@ namespace pgn2pgc::Chess {
                 if (toMove_ == ToMove::white) {
                     ++moveNumber_;
                 }
+
+                MoveList list = genLegalMoves<MoveList>();
+                status_       = CheckStatus(list);
             } else {
                 toMove_ = ToMove::endOfGame;
             }
@@ -1270,7 +1272,7 @@ int main() {
         auto        move = b.resolveSAN(buf, moves.list); // TODO handle MoveError
         std::string SAN  = b.toSAN(move, moves.list);
 
-        b.processMove(move, moves.list);
+        b.processMove(move);
 
         std::cout << "\n Moved: '" << SAN.c_str() << "' ";
     }

@@ -340,7 +340,7 @@ namespace {
                         }
                     }
 
-                    TIMED(game.processMove(cm, legal.list));
+                    TIMED(game.processMove(cm));
 
                     ++i;
                 }
