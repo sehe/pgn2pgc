@@ -949,7 +949,7 @@ namespace pgn2pgc::Chess {
                     }
                     if (getCastle() & whiteQS) {
                         bool pieceInWay = false;
-                        for (int j = file - 1; j > 1; --j)
+                        for (int j = file - 1; j > 0; --j)
                             if (!at(0, j).isEmpty())
                                 pieceInWay = true;
 
@@ -988,7 +988,7 @@ namespace pgn2pgc::Chess {
                     }
                     if (getCastle() & blackQS) {
                         bool pieceInWay = false;
-                        for (int j = file - 1; j > 1; --j)
+                        for (int j = file - 1; j > 0; --j)
                             if (!at(ranks() - 1, j).isEmpty())
                                 pieceInWay = true;
 
