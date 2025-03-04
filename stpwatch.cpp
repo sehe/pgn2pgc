@@ -8,10 +8,9 @@ namespace pgn2pgc::support {
         static struct AtProgramExit {
             ~AtProgramExit() {
                 using namespace std::chrono_literals;
-                std::cout << std::fixed << std::setprecision(4);
+                std::cout << std::fixed << std::setprecision(2);
                 for (auto& [name, timer] : gTimers)
-                    // std::cout << std::setw(8) << timer.time() / 1.s << "s " << name << "\n";
-                    std::cout << std::setw(6) << timer.time() / 1ms << " ms " << name << "\n";
+                    std::cout << std::setw(8) << timer.time() / 1.ms << " ms " << name << "\n";
             }
         } gAtProgramExit{};
     } // namespace
