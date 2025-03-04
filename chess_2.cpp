@@ -32,7 +32,7 @@ namespace pgn2pgc::Chess {
     static constexpr inline char RankToChar(unsigned rank) { return rank + '1'; }
     static constexpr inline int  CharToFile(char file) { return file - 'a'; }
     static constexpr inline int  CharToRank(char rank) { return rank - '1'; }
-    static std::ostream&         operator<<(std::ostream& os, RankFile const& f) {
+    std::ostream&                operator<<(std::ostream& os, RankFile const& f) {
         return os << FileToChar(f.file) << RankToChar(f.rank);
     }
 
@@ -211,13 +211,13 @@ namespace pgn2pgc::Chess {
                 std::cout << at(i, j).pieceToChar();
             }
         }
-        std::cout << "\n  abcdefgh \n";
-        std::cout << "\nTo Move:\t " << std::to_underlying(toMove_);
-        std::cout << "\nCastle:\t " << castle_;
-        std::cout << "\nStatus:\t " << std::to_underlying(status_);
-        std::cout << "\nEnPassant:\t " << enPassantFile_;
+        std::cout << "\n  abcdefgh \n" ;
+        std::cout << "\nTo Move:     " << (isWhiteToMove() ? "White" : "Black");
+        std::cout << "\nCastle:      " << castle_;
+        std::cout << "\nStatus:      " << std::to_underlying(status_);
+        std::cout << "\nEnPassant:   " << enPassantFile_;
         std::cout << "\nMove: " << moveNumber_;
-        std::cout << "\nPlies Since:\t " << pliesSince_;
+        std::cout << "\nPlies Since: " << pliesSince_ << std::endl;
     }
 
     // true on success

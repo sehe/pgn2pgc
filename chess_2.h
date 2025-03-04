@@ -69,6 +69,8 @@ namespace pgn2pgc::Chess {
 
         constexpr RankFile operator+(RankFile const& rhs) const { return {rank + rhs.rank, file + rhs.file}; }
         constexpr RankFile operator-(RankFile const& rhs) const { return {rank - rhs.rank, file - rhs.file}; }
+
+        friend std::ostream& operator<<(std::ostream& os, RankFile const& f);
     };
 
     struct ChessMove {
@@ -193,6 +195,8 @@ namespace pgn2pgc::Chess {
 
         void display() const;
 
+        GameStatus Status() const { return status_; }
+
       private:
         ToMove toMove() const { return toMove_; }
 
@@ -209,8 +213,6 @@ namespace pgn2pgc::Chess {
         bool isBlackToMove() const { return toMove_ == ToMove::black; }
 
         unsigned getCastle() const { return castle_; }
-
-        GameStatus Status() const { return status_; }
 
         int enPassant() const { return enPassantFile_; }
 
